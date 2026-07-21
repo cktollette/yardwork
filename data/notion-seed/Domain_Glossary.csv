@@ -1,0 +1,22 @@
+Term,Definition,Category,Used in app?
+HOC,"Height of cut. The blade height a lawn is mowed at, in inches or millimeters. Lower HOC suits reel-cut warm-season grasses; too low scalps.",Measurement,Yes
+PGR,"Plant growth regulator, often trinexapac-ethyl, that slows vertical growth and increases density, stretching the interval between mows.",Product,No
+pre-emergent,"A herbicide applied before weed seeds germinate, timed by soil temperature or GDD, to prevent crabgrass and other annuals.",Cultural practice,No
+post-emergent,A herbicide applied to weeds that have already germinated and are actively growing.,Cultural practice,No
+scalping,"Cutting too low in one pass, exposing stems or soil and stressing the turf. Also the intentional early-spring dormant scalp on Bermuda.",Cultural practice,Yes
+reel low,"Mowing with a reel mower at very low HOC for a tight, striped, golf-green look. The enthusiast aspiration.",Cultural practice,Yes
+domination line,"The crisp edge where turf meets hardscape or bed, created by edging. A signature flex in lawn culture.",Cultural practice,No
+dormant feeding,"Late-season fertilization while grass is entering or in dormancy, to support spring green-up.",Cultural practice,No
+GDD,"Growing degree days. A heat-accumulation metric from daily temperatures that predicts growth rate and times applications better than a fixed calendar.",Measurement,Yes
+striping,The light/dark pattern from bending grass blades in alternating directions with a roller or mower. The screenshot-bait pattern.,Cultural practice,Yes
+N-P-K,"Nitrogen-Phosphorus-Potassium. The three numbers on a fertilizer bag, percentage by weight of each macronutrient.",Measurement,No
+soil test,A lab analysis of soil pH and nutrient levels that drives an accurate fertilization plan. Basis of the proprietary soil-kit data moat.,Cultural practice,No
+thatch,"The layer of dead and living organic matter between green blades and soil. Excess thatch blocks water and air.",Cultural practice,No
+dethatching,A mechanical removal of excess thatch with a dethatcher or vertical mower.,Cultural practice,No
+overseeding,"Sowing seed into existing turf to thicken it, or seeding ryegrass over dormant Bermuda for winter color.",Cultural practice,No
+aeration,"Pulling soil cores or spiking to relieve compaction and improve water, air, and nutrient movement to the roots.",Cultural practice,No
+Bermuda,"A warm-season grass dominant in the Sun Belt. Loves heat, tolerates low HOC, stripes beautifully. The launch-market hero grass.",Grass type,Yes
+Zoysia,"A warm-season grass, dense and slow-growing, tolerant of a range of conditions. Common in the Sun Belt alongside Bermuda.",Grass type,Yes
+St. Augustine,"A warm-season grass with wide blades, common in the Gulf South. Mowed higher; does not take reel-low.",Grass type,Yes
+fescue,"A cool-season grass, often tall fescue, common in transition and northern zones. Higher HOC; the northern-churn seasonality case.",Grass type,Yes
+KBG,Kentucky bluegrass. A cool-season grass prized for color and self-repair via rhizomes. Northern enthusiast favorite.,Grass type,Yes

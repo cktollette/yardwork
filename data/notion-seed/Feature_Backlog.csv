@@ -1,0 +1,42 @@
+Feature,Pillar,Version,Status,Source,Effort,Attaches to a mow?,Notes,Decision Ref
+Mow timer (start/stop),Track,v0,Idea,Concept Doc,S,Yes,The heartbeat. Core atomic action.,
+Lawn polygon draw (satellite),Track,v0,Idea,Concept Doc,M,Yes,"One-time. Unlocks area, patterns, discharge, savings. Skippable; prompt at mow #3.",D-002
+Mow log,Track,v0,Idea,Concept Doc,M,Yes,"The record: date, duration, area, tasks, photos.",
+Streak,Track,v0,Idea,Concept Doc,S,Yes,Consecutive-week logging.,
+Basic stats screen,Track,v0,Idea,Concept Doc,M,Yes,"Avg mows/week; days between; sqft/min; lifetime totals.",
+Steps + distance (HealthKit/Fit),Track,v0.5,Idea,Concept Doc,M,Yes,Auto-captured during session.,
+Weather at mow time,Track,v0.5,Idea,Concept Doc,S,Yes,Stamped on the record.,
+Tools used per mow,Track,v0.5,Idea,Concept Doc,S,Yes,Feeds the share card.,
+Height of cut (HOC),Track,v0.5,Idea,Concept Doc,S,Yes,Feeds cadence recs.,
+Bags / clippings volume,Track,v0.5,Idea,Concept Doc,S,Yes,Manual.,
+Before/after photos,Track,v0.5,Idea,Concept Doc,S,Yes,Highest-engagement content downstream.,
+Spotify listening stats,Track,v0.5,Idea,Concept Doc,M,Yes,Songs during the mow window.,
+Savings calculator,Prove,v0.5,Idea,Concept Doc,M,Yes,Running counter. Great shareable brag.,
+Smart checklists (recurring + conditional),Guide,v1,Idea,Concept Doc,M,Yes,Standing tasks plus context rules.,
+Pattern planner (stripe/checker/diamond),Guide,v1,Idea,Concept Doc,L,Yes,Marketing engine. Prototype in isolation first.,
+Clipping-discharge direction,Guide,v1,Idea,Concept Doc,M,Yes,Deterministic geometry. NOT AI.,
+Lawn Journals feed,Community,v1,Idea,Concept Doc,L,Yes,Per-property thread; every mow auto-posts. The feed unit.,
+Reactions (no free-text),Community,v1,Idea,Concept Doc,M,Yes,Curated set only.,D-001
+Cadence recommendations (GDD),Guide,v1.5,Idea,Concept Doc,L,Yes,Most defensible Guide feature.,
+AI coach (RAG),Guide,v1.5,Idea,Concept Doc,XL,Yes,Turf-guide corpus.,D-003
+Badges & achievements,Community,v1.5,Idea,Concept Doc,M,Yes,Skew to effort over rarity.,
+Regional leaderboards,Community,v1.5,Idea,Concept Doc,L,Yes,Scoped by zone plus grass type.,
+Lawn of the Month,Community,v1.5,Idea,Concept Doc,M,Yes,"Scoped, plural, categories. Hold for density.",
+Camera overlay (consistent photos),Track,v1.5,Idea,Concept Doc,M,Yes,Ghost overlay plus tilt lock. Underrated.,
+Equipment garage,Track,v2,Idea,Concept Doc,M,Yes,Maintenance intervals plus affiliate plus identity flex.,
+Fertilizer application calculator,Guide,v2,Idea,Concept Doc,S,Yes,"Easy, high-utility free-tier hook.",
+Rain / irrigation tracking,Guide,v2,Idea,Concept Doc,M,Yes,Rainfall totals or manual gauge. Feeds skip-cycle recs.,
+Treatment calendar (fert/weed/fungus),Guide,v2,Idea,Concept Doc,L,Yes,Year-round program. Structural seasonality fix.,
+Custom calendar builder w/ templates,Guide,v2,Idea,Concept Doc,L,Yes,Generated 12-month program. Pro-tier justification.,
+Product/mineral directory,Guide,v2,Idea,Concept Doc,M,Yes,"As RAG corpus plus affiliate, surfaced contextually.",
+Year in Review (Wrapped),Prove,v2,Idea,Concept Doc,L,Yes,November ship. Annual acquisition spike.,
+Neighbor Mode / crew (logging only),Community,v2,Idea,Concept Doc,M,Yes,Growth loop. NO money.,D-004
+Soil sample kit,Prove,v2,Idea,Co-founder,L,Yes,Physical kit plus affiliate. Proprietary data = moat.,D-007
+Affiliate on equipment/products,Prove,v2,Idea,Concept Doc,M,Yes,"High-intent, no ad-feel.",
+Remote consulting (Teladoc for lawn),Community,v3,Idea,Concept Doc,XL,Yes,Verified experts plus payments. Marketplace by another name.,
+Marketplace (resale),Prove,v3,Idea,Concept Doc,XL,Yes,Needs liquidity plus trust. Density first.,
+Discussion forums,Out of Scope,Never,Killed,Concept Doc,M,No,Conflicts with no-free-text-at-launch. Journals ARE the forum.,D-001
+Neighbor mows w/ escrow + verification,Out of Scope,Never,Killed,Concept Doc,XL,No,"Different company: money transmission, liability, 1099s.",D-004
+Sprinkler-app control integration,Out of Scope,Never,Killed,Concept Doc,M,No,Controlling irrigation isn't the mowing pain. Rain tracking kept.,
+GPS route tracing,Out of Scope,Never,Killed,Concept Doc,M,No,Phone GPS too inaccurate. Polygon draw instead.,D-002
+Gardening / landscaping,Out of Scope,Never,Killed,Concept Doc,XL,No,"Deliberate later, not a maybe. Post-PMF.",D-006
