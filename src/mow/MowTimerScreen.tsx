@@ -1,12 +1,15 @@
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { RootStackParamList } from './navigation';
 import { buildDraftMow, computeElapsedSeconds } from './timer';
-import { saveDraftMow } from './saveDraftMow';
 import {
   clearRunningTimer,
   loadRunningTimer,
   saveRunningTimer,
 } from './timerStorage';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Timer'>;
 
 /** Format whole seconds as HH:MM:SS. */
 function formatElapsed(totalSeconds: number): string {
@@ -17,7 +20,7 @@ function formatElapsed(totalSeconds: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-export default function MowTimerScreen() {
+export default function MowTimerScreen({ navigation }: Props) {
   // `startedAt` is the single source of truth: null = idle, number = running.
   const [startedAt, setStartedAt] = useState<number | null>(null);
   // Bumped by the cosmetic interval purely to trigger re-renders.
@@ -52,10 +55,12 @@ export default function MowTimerScreen() {
   const handleStop = useCallback(() => {
     if (startedAt === null) return;
     const draft = buildDraftMow(startedAt, Date.now());
-    saveDraftMow(draft);
+    // The mow is done: reset the UI and clear the persisted running timer, then
+    // hand the draft to the Save Mow screen, which persists it (or discards).
     setStartedAt(null);
     void clearRunningTimer();
-  }, [startedAt]);
+    navigation.navigate('SaveMow', { draft });
+  }, [startedAt, navigation]);
 
   const elapsedSeconds = isRunning
     ? computeElapsedSeconds(startedAt, Date.now())
@@ -78,6 +83,15 @@ export default function MowTimerScreen() {
       >
         <Text style={styles.buttonText}>{isRunning ? 'Stop' : 'Start'}</Text>
       </Pressable>
+      {!isRunning && (
+        <Pressable
+          onPress={() => navigation.navigate('MowList')}
+          style={({ pressed }) => pressed && styles.pressed}
+          accessibilityRole="button"
+        >
+          <Text style={styles.link}>View log</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -113,6 +127,11 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 22,
+    fontWeight: '600',
+  },
+  link: {
+    fontSize: 16,
+    color: '#16a34a',
     fontWeight: '600',
   },
 });
