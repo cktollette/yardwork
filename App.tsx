@@ -1,3 +1,4 @@
+import Mapbox from '@rnmapbox/maps';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +8,10 @@ import MowTimerScreen from './src/mow/MowTimerScreen';
 import type { RootStackParamList } from './src/mow/navigation';
 import SaveMowScreen from './src/mow/SaveMowScreen';
 import StatsScreen from './src/stats/StatsScreen';
+
+// Set the Mapbox public access token at app start, before any MapView renders.
+// Loaded from the env; null when unset so no token is baked into the source.
+Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? null);
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
