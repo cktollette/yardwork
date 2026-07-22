@@ -10,4 +10,5 @@ export type RootStackParamList = {
   Timer: undefined;
   SaveMow: { draft: DraftMow };
   MowList: undefined;
+  Stats: undefined;
 };
