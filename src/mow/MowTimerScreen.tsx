@@ -84,13 +84,22 @@ export default function MowTimerScreen({ navigation }: Props) {
         <Text style={styles.buttonText}>{isRunning ? 'Stop' : 'Start'}</Text>
       </Pressable>
       {!isRunning && (
-        <Pressable
-          onPress={() => navigation.navigate('MowList')}
-          style={({ pressed }) => pressed && styles.pressed}
-          accessibilityRole="button"
-        >
-          <Text style={styles.link}>View log</Text>
-        </Pressable>
+        <View style={styles.links}>
+          <Pressable
+            onPress={() => navigation.navigate('MowList')}
+            style={({ pressed }) => pressed && styles.pressed}
+            accessibilityRole="button"
+          >
+            <Text style={styles.link}>View log</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => navigation.navigate('Stats')}
+            style={({ pressed }) => pressed && styles.pressed}
+            accessibilityRole="button"
+          >
+            <Text style={styles.link}>Stats</Text>
+          </Pressable>
+        </View>
       )}
     </View>
   );
@@ -128,6 +137,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 22,
     fontWeight: '600',
+  },
+  links: {
+    flexDirection: 'row',
+    gap: 32,
   },
   link: {
     fontSize: 16,
