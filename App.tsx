@@ -1,48 +1,20 @@
 import Mapbox from '@rnmapbox/maps';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import MowListScreen from './src/mow/MowListScreen';
-import MowTimerScreen from './src/mow/MowTimerScreen';
-import type { RootStackParamList } from './src/mow/navigation';
-import SaveMowScreen from './src/mow/SaveMowScreen';
-import StatsScreen from './src/stats/StatsScreen';
+import PolygonDrawSpike from './src/lawn/PolygonDrawSpike';
 
 // Set the Mapbox public access token at app start, before any MapView renders.
 // Loaded from the env; null when unset so no token is baked into the source.
 Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? null);
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
-
+// SPIKE: render the polygon-draw screen directly as the app root. The real
+// navigation + onboarding entry points come with the full feature (Step 2);
+// the timer/log/stats nav stack from `main` is restored then.
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator>
-          <Stack.Screen
-            name="Timer"
-            component={MowTimerScreen}
-            options={{ title: 'Yardwork' }}
-          />
-          <Stack.Screen
-            name="SaveMow"
-            component={SaveMowScreen}
-            options={{ title: 'Save Mow' }}
-          />
-          <Stack.Screen
-            name="MowList"
-            component={MowListScreen}
-            options={{ title: 'Mow Log' }}
-          />
-          <Stack.Screen
-            name="Stats"
-            component={StatsScreen}
-            options={{ title: 'Stats' }}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-      <StatusBar style="auto" />
+      <PolygonDrawSpike />
+      <StatusBar style="light" />
     </SafeAreaProvider>
   );
 }
