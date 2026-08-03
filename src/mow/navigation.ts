@@ -11,4 +11,9 @@ export type RootStackParamList = {
   SaveMow: { draft: DraftMow };
   MowList: undefined;
   Stats: undefined;
+  /**
+   * Draw or edit the lawn polygon for a Property. `create` starts empty;
+   * `edit` preloads the property's existing boundary. One polygon per property.
+   */
+  LawnDraw: { propertyId: string; mode: 'create' | 'edit' };
 };
