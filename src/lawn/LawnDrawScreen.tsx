@@ -188,6 +188,33 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
     ]);
   }, [vertices.length, saving, navigation]);
 
+  const removeLawn = useCallback(() => {
+    Alert.alert(
+      'Remove your lawn?',
+      'This deletes the saved boundary. Area and efficiency stats will lock again until you draw a new one.',
+      [
+        { text: 'Keep lawn', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setSaving(true);
+            try {
+              await propertyRepository.clearBoundary(propertyId);
+              navigation.goBack();
+            } catch (err) {
+              setSaving(false);
+              Alert.alert(
+                "Couldn't remove your lawn",
+                err instanceof Error ? err.message : 'Please try again.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  }, [propertyId, navigation]);
+
   const lineShape = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(
     () => ({
       type: 'Feature',
@@ -278,7 +305,18 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
               ? `Tap to place  ·  ${vertices.length} points`
               : `Pan to frame your lawn  ·  ${vertices.length} points`}
         </Text>
-        <View style={styles.cancel} />
+        {mode === 'edit' ? (
+          <Pressable
+            onPress={removeLawn}
+            disabled={saving}
+            style={styles.cancel}
+            hitSlop={8}
+          >
+            <Text style={styles.removeText}>Remove</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.cancel} />
+        )}
       </View>
 
       {overWarn && !closed && (
@@ -432,6 +470,12 @@ const styles = StyleSheet.create({
   },
   cancel: { minWidth: 60 },
   cancelText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  removeText: {
+    color: '#fca5a5',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
   status: {
     flex: 1,
     textAlign: 'center',
