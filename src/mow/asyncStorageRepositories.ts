@@ -1,7 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { computeAreaSqFt } from '../lawn/area';
 import { generateId } from './id';
-import type { Mow, NewMow, Property } from './models';
-import type { MowRepository, PropertyRepository } from './repositories';
+import type { Mow, NewMow, Position, Property } from './models';
+import {
+  MIN_BOUNDARY_VERTICES,
+  type MowRepository,
+  type PropertyRepository,
+} from './repositories';
 import { ensureSchemaVersion } from './schema';
 
 export const MOWS_KEY = '@yardwork/mows';
@@ -67,6 +72,55 @@ class AsyncStoragePropertyRepository implements PropertyRepository {
     };
     await AsyncStorage.setItem(PROPERTIES_KEY, JSON.stringify([property]));
     return property;
+  }
+
+  async getById(id: string): Promise<Property | null> {
+    await ensureSchemaVersion();
+    const properties = await readArray<Property>(PROPERTIES_KEY);
+    return properties.find((p) => p.id === id) ?? null;
+  }
+
+  async saveBoundary(propertyId: string, boundary: Position[]): Promise<Property> {
+    // Not a polygon below the minimum — reject before any write so a bad call
+    // leaves stored data untouched.
+    if (boundary.length < MIN_BOUNDARY_VERTICES) {
+      throw new Error(
+        `A lawn boundary needs at least ${MIN_BOUNDARY_VERTICES} vertices`,
+      );
+    }
+    // Recompute area on write and store it (D-005: read the stored number,
+    // never recompute from boundary).
+    const areaSqFt = computeAreaSqFt(boundary);
+    return this.updateProperty(propertyId, (p) => ({ ...p, boundary, areaSqFt }));
+  }
+
+  async clearBoundary(propertyId: string): Promise<Property> {
+    return this.updateProperty(propertyId, (p) => ({
+      ...p,
+      boundary: null,
+      areaSqFt: null,
+    }));
+  }
+
+  /**
+   * Load the property list, replace the one matching `id` via `mutate`, write
+   * the list back, and return the updated Property. Throws if `id` is unknown —
+   * a boundary can't hang off a property that doesn't exist (D-005).
+   */
+  private async updateProperty(
+    id: string,
+    mutate: (p: Property) => Property,
+  ): Promise<Property> {
+    await ensureSchemaVersion();
+    const properties = await readArray<Property>(PROPERTIES_KEY);
+    const index = properties.findIndex((p) => p.id === id);
+    if (index === -1) {
+      throw new Error(`No property with id ${id}`);
+    }
+    const updated = mutate(properties[index]);
+    properties[index] = updated;
+    await AsyncStorage.setItem(PROPERTIES_KEY, JSON.stringify(properties));
+    return updated;
   }
 }
 

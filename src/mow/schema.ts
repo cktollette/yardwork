@@ -7,7 +7,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * future branch (Supabase sync, or any model migration) know what shape the
  * local data is in before it reads it — cheap to add now, painful to retrofit.
  */
-export const SCHEMA_VERSION = 1;
+// v1: mows + properties.
+// v2: Property gained `boundary` + `areaSqFt` (lawn polygon). Purely additive —
+//     absent fields read as "no polygon", so no data transform is required on
+//     upgrade; the bump just records the shape change for future migrations.
+export const SCHEMA_VERSION = 2;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**

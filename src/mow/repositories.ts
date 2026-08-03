@@ -1,4 +1,4 @@
-import type { Mow, NewMow, Property } from './models';
+import type { Mow, NewMow, Position, Property } from './models';
 
 /**
  * Persistence boundary for mows.
@@ -19,6 +19,9 @@ export interface MowRepository {
   getMowById(id: string): Promise<Mow | null>;
 }
 
+/** The fewest vertices that form a polygon. Enforced on write; see saveBoundary. */
+export const MIN_BOUNDARY_VERTICES = 3;
+
 /** Persistence boundary for properties. See MowRepository for the swap rationale. */
 export interface PropertyRepository {
   /**
@@ -26,4 +29,20 @@ export interface PropertyRepository {
    * Idempotent: repeated calls return the same Property.
    */
   getOrCreateDefault(): Promise<Property>;
+  /** A single Property by id, or null if none exists. */
+  getById(id: string): Promise<Property | null>;
+  /**
+   * Persist the lawn boundary for a Property, replacing any existing polygon
+   * (one polygon per property, D-005). The area is recomputed from `boundary`
+   * and stored alongside it — callers read the stored area, never recompute.
+   *
+   * Rejects if the Property doesn't exist, or if `boundary` has fewer than
+   * MIN_BOUNDARY_VERTICES points (not a polygon). Returns the updated Property.
+   */
+  saveBoundary(propertyId: string, boundary: Position[]): Promise<Property>;
+  /**
+   * Remove the lawn boundary (and its stored area) from a Property, returning
+   * the updated Property. A no-op on a Property that has no polygon.
+   */
+  clearBoundary(propertyId: string): Promise<Property>;
 }
