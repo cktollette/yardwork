@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { propertyRepository } from './asyncStorageRepositories';
 import type { RootStackParamList } from './navigation';
 import { buildDraftMow, computeElapsedSeconds } from './timer';
 import {
@@ -8,6 +9,12 @@ import {
   loadRunningTimer,
   saveRunningTimer,
 } from './timerStorage';
+import {
+  dismissOnboarding,
+  hasLawn,
+  isOnboardingDismissed,
+  shouldShowOnboarding,
+} from '../lawn/prompts';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Timer'>;
 
@@ -37,6 +44,53 @@ export default function MowTimerScreen({ navigation }: Props) {
       active = false;
     };
   }, []);
+
+  // First-launch onboarding: offer to trace the lawn. Skippable, and once the
+  // user draws one or taps Skip it never shows again (D-002 — optional polygon).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const [property, dismissed] = await Promise.all([
+        propertyRepository.getOrCreateDefault(),
+        isOnboardingDismissed(),
+      ]);
+      if (!active) return;
+      if (
+        !shouldShowOnboarding({
+          hasBoundary: hasLawn(property.boundary),
+          dismissed,
+        })
+      ) {
+        return;
+      }
+      Alert.alert(
+        'Welcome to Yardwork',
+        'Trace your lawn to unlock area and efficiency stats. You can always do this later from Stats.',
+        [
+          {
+            text: 'Skip',
+            style: 'cancel',
+            onPress: () => {
+              void dismissOnboarding();
+            },
+          },
+          {
+            text: 'Draw my lawn',
+            onPress: () => {
+              void dismissOnboarding();
+              navigation.navigate('LawnDraw', {
+                propertyId: property.id,
+                mode: 'create',
+              });
+            },
+          },
+        ],
+      );
+    })();
+    return () => {
+      active = false;
+    };
+  }, [navigation]);
 
   // Cosmetic 1s interval while running. It ONLY forces a re-render; all elapsed
   // time is derived from `startedAt`, so a missed/killed tick loses no time.

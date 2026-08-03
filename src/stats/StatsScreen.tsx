@@ -1,10 +1,11 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { mowRepository } from '../mow/asyncStorageRepositories';
-import type { Mow } from '../mow/models';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
+import type { Property } from '../mow/models';
 import type { RootStackParamList } from '../mow/navigation';
+import { hasLawn } from '../lawn/prompts';
 import { deriveStats, MIN_MOWS_FOR_AVERAGES, type Stats } from './deriveStats';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Stats'>;
@@ -28,17 +29,24 @@ function LockedHint({ text }: { text: string }) {
   return <Text style={styles.hint}>{text}</Text>;
 }
 
-export default function StatsScreen(_props: Props) {
+export default function StatsScreen({ navigation }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [property, setProperty] = useState<Property | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      mowRepository.listMows().then((mows: Mow[]) => {
-        // No polygon yet (D-002 lands area on Property later), so area is null
-        // and the area-based stats stay gated behind "Draw your lawn".
-        const derived = deriveStats(mows, { areaSqFt: null, now: Date.now() });
-        if (active) setStats(derived);
+      Promise.all([
+        mowRepository.listMows(),
+        propertyRepository.getOrCreateDefault(),
+      ]).then(([mows, prop]) => {
+        if (!active) return;
+        setProperty(prop);
+        // The lawn area (once drawn) unlocks the area-based stats; until then
+        // it's null and those stats stay gated behind "Draw your lawn".
+        setStats(
+          deriveStats(mows, { areaSqFt: prop.areaSqFt ?? null, now: Date.now() }),
+        );
       });
       return () => {
         active = false;
@@ -47,13 +55,54 @@ export default function StatsScreen(_props: Props) {
   );
 
   // First read in flight: render nothing rather than a flash of empty stats.
-  if (stats === null) return <View style={styles.container} />;
+  if (stats === null || property === null) return <View style={styles.container} />;
+
+  const lawnDrawn = hasLawn(property.boundary);
 
   const averagesLocked = stats.avgDaysBetweenMows === null;
   const remainingForAverages = Math.max(0, MIN_MOWS_FOR_AVERAGES - stats.lifetimeMows);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Lawn</Text>
+        {lawnDrawn ? (
+          <>
+            <StatRow
+              label="Area"
+              value={`${Math.round(property.areaSqFt as number).toLocaleString()} sq ft`}
+            />
+            <Pressable
+              onPress={() =>
+                navigation.navigate('LawnDraw', {
+                  propertyId: property.id,
+                  mode: 'edit',
+                })
+              }
+              accessibilityRole="button"
+            >
+              <Text style={styles.lawnLink}>Edit lawn</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <LockedHint text="Draw your lawn to unlock area & efficiency stats" />
+            <Pressable
+              onPress={() =>
+                navigation.navigate('LawnDraw', {
+                  propertyId: property.id,
+                  mode: 'create',
+                })
+              }
+              style={({ pressed }) => [styles.lawnCta, pressed && styles.pressed]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.lawnCtaText}>Draw your lawn</Text>
+            </Pressable>
+          </>
+        )}
+      </View>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Lifetime</Text>
         <StatRow label="Mows" value={String(stats.lifetimeMows)} />
@@ -151,5 +200,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     fontStyle: 'italic',
+  },
+  lawnLink: {
+    fontSize: 15,
+    color: '#16a34a',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  lawnCta: {
+    marginTop: 4,
+    paddingVertical: 12,
+    borderRadius: 999,
+    alignItems: 'center',
+    backgroundColor: '#16a34a',
+  },
+  lawnCtaText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

@@ -5,7 +5,7 @@ import {
   mowRepository,
   propertyRepository,
 } from './asyncStorageRepositories';
-import type { NewMow } from './models';
+import type { NewMow, Position } from './models';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './schema';
 
 // In-memory AsyncStorage mock shipped with the async-storage package.
@@ -90,6 +90,80 @@ describe('PropertyRepository.getOrCreateDefault', () => {
     const first = await propertyRepository.getOrCreateDefault();
     const second = await propertyRepository.getOrCreateDefault();
     expect(second).toEqual(first);
+  });
+});
+
+describe('PropertyRepository lawn boundary', () => {
+  // A small triangle — the minimum valid polygon.
+  const TRIANGLE: Position[] = [
+    [0, 0],
+    [0.001, 0],
+    [0, 0.001],
+  ];
+
+  it('saves a boundary and stores a positive computed area', async () => {
+    const { id } = await propertyRepository.getOrCreateDefault();
+    const updated = await propertyRepository.saveBoundary(id, TRIANGLE);
+
+    expect(updated.boundary).toEqual(TRIANGLE);
+    expect(updated.areaSqFt).toBeGreaterThan(0);
+
+    // Persisted, not just returned.
+    const reloaded = await propertyRepository.getById(id);
+    expect(reloaded?.boundary).toEqual(TRIANGLE);
+    expect(reloaded?.areaSqFt).toBe(updated.areaSqFt);
+  });
+
+  it('replaces the existing polygon rather than adding one (one per property)', async () => {
+    const { id } = await propertyRepository.getOrCreateDefault();
+    await propertyRepository.saveBoundary(id, TRIANGLE);
+
+    const bigger: Position[] = [
+      [0, 0],
+      [0.002, 0],
+      [0.002, 0.002],
+      [0, 0.002],
+    ];
+    const updated = await propertyRepository.saveBoundary(id, bigger);
+
+    expect(updated.boundary).toEqual(bigger);
+    // Still exactly one Property; the boundary was swapped, not appended.
+    const reloaded = await propertyRepository.getById(id);
+    expect(reloaded?.boundary).toEqual(bigger);
+  });
+
+  it('rejects a boundary with fewer than 3 vertices and writes nothing', async () => {
+    const { id, areaSqFt } = await propertyRepository.getOrCreateDefault();
+    expect(areaSqFt ?? null).toBeNull();
+
+    await expect(
+      propertyRepository.saveBoundary(id, [[0, 0], [1, 1]]),
+    ).rejects.toThrow(/at least 3/);
+
+    const reloaded = await propertyRepository.getById(id);
+    expect(reloaded?.boundary ?? null).toBeNull();
+  });
+
+  it('rejects saving to an unknown property id', async () => {
+    await expect(
+      propertyRepository.saveBoundary('nope', TRIANGLE),
+    ).rejects.toThrow(/nope/);
+  });
+
+  it('clears a boundary back to null area', async () => {
+    const { id } = await propertyRepository.getOrCreateDefault();
+    await propertyRepository.saveBoundary(id, TRIANGLE);
+
+    const cleared = await propertyRepository.clearBoundary(id);
+    expect(cleared.boundary).toBeNull();
+    expect(cleared.areaSqFt).toBeNull();
+
+    const reloaded = await propertyRepository.getById(id);
+    expect(reloaded?.boundary).toBeNull();
+  });
+
+  it('returns null from getById for an unknown id', async () => {
+    expect(await propertyRepository.getById('missing')).toBeNull();
   });
 });
 

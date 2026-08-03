@@ -12,6 +12,12 @@ import {
 import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import type { RootStackParamList } from './navigation';
+import {
+  dismissThirdMowPrompt,
+  hasLawn,
+  isThirdMowPromptDismissed,
+  shouldPromptAfterMow,
+} from '../lawn/prompts';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SaveMow'>;
 
@@ -39,6 +45,44 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         durationSeconds: draft.durationSeconds,
         ...(trimmed ? { notes: trimmed } : {}),
       });
+
+      // Once they've logged a few mows but still have no lawn, nudge them once
+      // to trace it (unlocks area/efficiency stats). Skippable, shown at most
+      // once — dismissing it here means it never returns.
+      const [mows, dismissed] = await Promise.all([
+        mowRepository.listMows(),
+        isThirdMowPromptDismissed(),
+      ]);
+      if (
+        shouldPromptAfterMow({
+          mowCount: mows.length,
+          hasBoundary: hasLawn(property.boundary),
+          dismissed,
+        })
+      ) {
+        await dismissThirdMowPrompt();
+        Alert.alert(
+          'Trace your lawn?',
+          'Trace your lawn once to unlock area and efficiency stats.',
+          [
+            {
+              text: 'Not now',
+              style: 'cancel',
+              onPress: () => navigation.replace('MowList'),
+            },
+            {
+              text: 'Trace lawn',
+              onPress: () =>
+                navigation.replace('LawnDraw', {
+                  propertyId: property.id,
+                  mode: 'create',
+                }),
+            },
+          ],
+        );
+        return;
+      }
+
       // replace() so Back from the list returns to the timer, not here.
       navigation.replace('MowList');
     } catch {
