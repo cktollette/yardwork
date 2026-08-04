@@ -60,6 +60,9 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
   const [closed, setClosed] = useState(false);
   const [loading, setLoading] = useState(mode === 'edit');
   const [saving, setSaving] = useState(false);
+  // Disabled for the duration of a vertex drag so the map's native pan gesture
+  // can't steal the touch mid-drag. See beginVertexDrag/endVertexDrag.
+  const [mapScrollEnabled, setMapScrollEnabled] = useState(true);
 
   const canClose = vertices.length >= MIN_BOUNDARY_VERTICES && !closed;
   const areaSqFt = useMemo(() => computeAreaSqFt(vertices), [vertices]);
@@ -73,6 +76,26 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
   useEffect(() => {
     canCloseRef.current = canClose;
   }, [canClose]);
+
+  // Disable the native-stack interactive pop/back-swipe (D-012) for the WHOLE
+  // time draw mode is on, not just during a drag. The pop recognizer lives
+  // above the map and can claim a left-side touch before onPanResponderGrant
+  // fires (a pressure-dependent race), so scoping to draw mode removes the race
+  // entirely rather than trying to win it. Two explicit exits (Save/Cancel)
+  // mean losing edge swipe-back here traps nobody.
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !drawMode });
+  }, [drawMode, navigation]);
+
+  // CRITICAL safety net: always restore the back-swipe on unmount. Exiting via
+  // Save or Cancel while draw mode is on must not leak a disabled swipe-back
+  // into the rest of the app. `navigation` is stable, so this cleanup runs on
+  // unmount.
+  useEffect(() => {
+    return () => {
+      navigation.setOptions({ gestureEnabled: true });
+    };
+  }, [navigation]);
 
   const mapRef = useRef<MapViewType | null>(null);
   // The map's window offset, so a screen-space drag point can be translated
@@ -141,6 +164,15 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
     },
     [screenToCoord],
   );
+
+  // Drag lifecycle: freeze the map's pan on touch-down so the native recognizer
+  // never competes with the handle's PanResponder, and always restore it when
+  // the drag ends — including on TERMINATE, so a gesture lost to the system
+  // can never leave the map permanently frozen. setState setters are stable, so
+  // these stay referentially stable for the once-created PanResponder.
+  // (The navigation back-swipe is handled separately, scoped to draw mode.)
+  const beginVertexDrag = useCallback(() => setMapScrollEnabled(false), []);
+  const endVertexDrag = useCallback(() => setMapScrollEnabled(true), []);
 
   const close = useCallback(() => {
     setClosed(true);
@@ -257,6 +289,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
         onPress={handleMapPress}
         onDidFinishLoadingMap={measureMap}
         onLayout={measureMap}
+        scrollEnabled={mapScrollEnabled}
         scaleBarEnabled={false}
         logoEnabled={false}
         attributionEnabled={false}
@@ -290,6 +323,8 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
             drawModeRef={drawModeRef}
             onDrag={moveVertex}
             onTap={tapVertex}
+            onDragStart={beginVertexDrag}
+            onDragEnd={endVertexDrag}
           />
         ))}
       </MapView>
@@ -396,6 +431,11 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
  * once and reads live draw-mode / callbacks through refs so it never goes
  * stale. A press that barely moves is treated as a tap (used to close the ring
  * on the first vertex); anything with movement drags the vertex.
+ *
+ * onDragStart fires on touch-down to freeze the map pan BEFORE any movement,
+ * pre-empting the native pan recognizer instead of racing it. onDragEnd fires
+ * on both release and terminate so the map pan is always restored — a drag lost
+ * to the system must never leave the map frozen.
  */
 function VertexHandle({
   index,
@@ -404,6 +444,8 @@ function VertexHandle({
   drawModeRef,
   onDrag,
   onTap,
+  onDragStart,
+  onDragEnd,
 }: {
   index: number;
   coordinate: Position;
@@ -411,6 +453,8 @@ function VertexHandle({
   drawModeRef: React.MutableRefObject<boolean>;
   onDrag: (index: number, pageX: number, pageY: number) => void;
   onTap: (index: number) => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
   const moved = useRef(false);
   const responder = useRef(
@@ -419,13 +463,20 @@ function VertexHandle({
       onMoveShouldSetPanResponder: () => drawModeRef.current,
       onPanResponderGrant: () => {
         moved.current = false;
+        onDragStart();
       },
       onPanResponderMove: (_e, g) => {
         if (Math.abs(g.dx) > 2 || Math.abs(g.dy) > 2) moved.current = true;
         onDrag(index, g.moveX, g.moveY);
       },
       onPanResponderRelease: () => {
+        onDragEnd();
         if (!moved.current) onTap(index);
+      },
+      onPanResponderTerminate: () => {
+        // Gesture taken over/interrupted (system, another responder): restore
+        // the map pan so it can never stay frozen.
+        onDragEnd();
       },
     }),
   ).current;
