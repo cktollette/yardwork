@@ -1,3 +1,4 @@
+import type { MowEdit } from './editMow';
 import type { Mow, NewMow, Position, Property } from './models';
 
 /**
@@ -17,6 +18,17 @@ export interface MowRepository {
   listMows(): Promise<Mow[]>;
   /** A single mow by id, or null if none exists. */
   getMowById(id: string): Promise<Mow | null>;
+  /**
+   * Apply an edit to a mow and return the updated mow. Rejects if `id` is
+   * unknown, or if the patch would make the mow end at/before it starts — in
+   * which case nothing is written (see applyMowEdit).
+   */
+  update(id: string, patch: MowEdit): Promise<Mow>;
+  /**
+   * Hard-delete a mow (no tombstone). Idempotent: deleting an unknown or
+   * already-deleted id resolves without error.
+   */
+  delete(id: string): Promise<void>;
 }
 
 /** The fewest vertices that form a polygon. Enforced on write; see saveBoundary. */

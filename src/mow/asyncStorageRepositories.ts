@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { computeAreaSqFt } from '../lawn/area';
+import { applyMowEdit } from './editMow';
+import type { MowEdit } from './editMow';
 import { generateId } from './id';
 import type { Mow, NewMow, Position, Property } from './models';
 import {
@@ -57,6 +59,31 @@ class AsyncStorageMowRepository implements MowRepository {
     await ensureSchemaVersion();
     const mows = await readArray<Mow>(MOWS_KEY);
     return mows.find((m) => m.id === id) ?? null;
+  }
+
+  async update(id: string, patch: MowEdit): Promise<Mow> {
+    await ensureSchemaVersion();
+    const mows = await readArray<Mow>(MOWS_KEY);
+    const index = mows.findIndex((m) => m.id === id);
+    if (index === -1) {
+      throw new Error(`No mow with id ${id}`);
+    }
+    // applyMowEdit validates before we write, so a rejected edit (e.g. a
+    // non-positive duration) leaves stored data untouched.
+    const updated = applyMowEdit(mows[index], patch);
+    mows[index] = updated;
+    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+    return updated;
+  }
+
+  async delete(id: string): Promise<void> {
+    await ensureSchemaVersion();
+    const mows = await readArray<Mow>(MOWS_KEY);
+    const remaining = mows.filter((m) => m.id !== id);
+    // Idempotent: only write when something actually changed.
+    if (remaining.length !== mows.length) {
+      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(remaining));
+    }
   }
 }
 
