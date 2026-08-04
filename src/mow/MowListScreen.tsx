@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import type { Mow } from './models';
@@ -10,7 +10,7 @@ import type { RootStackParamList } from './navigation';
 type Props = NativeStackScreenProps<RootStackParamList, 'MowList'>;
 
 /** Reverse-chronological list of saved mows: date, duration, notes preview. */
-export default function MowListScreen(_props: Props) {
+export default function MowListScreen({ navigation }: Props) {
   const [mows, setMows] = useState<Mow[] | null>(null);
 
   // Reload whenever the screen regains focus so a freshly saved mow appears.
@@ -47,7 +47,11 @@ export default function MowListScreen(_props: Props) {
       data={mows}
       keyExtractor={(mow) => mow.id}
       renderItem={({ item }) => (
-        <View style={styles.row}>
+        <Pressable
+          onPress={() => navigation.navigate('MowDetail', { mowId: item.id })}
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          accessibilityRole="button"
+        >
           <View style={styles.rowHeader}>
             <Text style={styles.date}>{formatMowDate(item.startedAt)}</Text>
             <Text style={styles.duration}>
@@ -61,7 +65,7 @@ export default function MowListScreen(_props: Props) {
           ) : (
             <Text style={[styles.notes, styles.noNotes]}>No notes</Text>
           )}
-        </View>
+        </Pressable>
       )}
     />
   );
@@ -98,6 +102,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     gap: 6,
+  },
+  rowPressed: {
+    opacity: 0.7,
   },
   rowHeader: {
     flexDirection: 'row',
