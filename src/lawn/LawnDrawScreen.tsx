@@ -19,11 +19,18 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import type { Position } from '../mow/models';
 import type { RootStackParamList } from '../mow/navigation';
 import { propertyRepository } from '../mow/asyncStorageRepositories';
 import { MIN_BOUNDARY_VERTICES } from '../mow/repositories';
 import { computeAreaSqFt } from './area';
+import {
+  CURRENT_POSITION_TIMEOUT_MS,
+  decideLocationFlow,
+  pickCameraCenter,
+  withTimeout,
+} from './location';
 
 /**
  * Draw / edit the lawn polygon on a Mapbox satellite layer.
@@ -38,7 +45,7 @@ import { computeAreaSqFt } from './area';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LawnDraw'>;
 
-const DEFAULT_CENTER: Position = [-96.8236, 33.1507]; // suburban default (v0.5: user location)
+const DEFAULT_CENTER: Position = [-96.8236, 33.1507]; // suburban default when location is unavailable
 const DEFAULT_ZOOM = 18.5;
 const ACCENT = '#22c55e';
 const WARN = '#f59e0b';
@@ -64,6 +71,14 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
   // can't steal the touch mid-drag. See beginVertexDrag/endVertexDrag.
   const [mapScrollEnabled, setMapScrollEnabled] = useState(true);
 
+  // The controlled camera target. Both modes feed this ONE state — edit mode
+  // sets it to the saved polygon's first vertex, create mode sets it to the
+  // user's location once resolved. It is intentionally NOT derived from
+  // `vertices` (which change on every tap): a controlled camera bound to live
+  // vertices would snap the map while drawing. It only changes at deliberate
+  // moments, so re-renders during drawing leave the camera untouched.
+  const [cameraCenter, setCameraCenter] = useState<Position>(DEFAULT_CENTER);
+
   const canClose = vertices.length >= MIN_BOUNDARY_VERTICES && !closed;
   const areaSqFt = useMemo(() => computeAreaSqFt(vertices), [vertices]);
 
@@ -76,6 +91,14 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
   useEffect(() => {
     canCloseRef.current = canClose;
   }, [canClose]);
+
+  // Live vertex count for the create-mode location effect: it runs once on
+  // mount, so it must read the current count through a ref (not the stale
+  // closure) to decide whether a late GPS refine would disturb active drawing.
+  const verticesLenRef = useRef(vertices.length);
+  useEffect(() => {
+    verticesLenRef.current = vertices.length;
+  }, [vertices.length]);
 
   // Disable the native-stack interactive pop/back-swipe (D-012) for the WHOLE
   // time draw mode is on, not just during a drag. The pop recognizer lives
@@ -119,6 +142,8 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
       if (property?.boundary && property.boundary.length >= MIN_BOUNDARY_VERTICES) {
         setVertices(property.boundary);
         setClosed(true);
+        // Same controlled camera state create mode uses — center on the polygon.
+        setCameraCenter(property.boundary[0]);
       }
       setLoading(false);
     })();
@@ -126,6 +151,55 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
       active = false;
     };
   }, [mode, propertyId]);
+
+  // Create mode: center the camera on the user's location. This is the impure
+  // shell around ./location's pure helpers — it calls expo-location and feeds
+  // the results through them, updating `cameraCenter`. Any failure path
+  // (denied / unavailable / timeout) simply never updates it, leaving
+  // DEFAULT_CENTER silently. Edit mode centers on the saved polygon instead and
+  // never asks for location.
+  useEffect(() => {
+    if (mode !== 'create') return;
+    let active = true;
+    (async () => {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      let gate = decideLocationFlow(status as any);
+      // Only prompt when undetermined; a prior denial goes straight to fallback.
+      if (gate === 'request') {
+        const requested = await Location.requestForegroundPermissionsAsync();
+        gate = decideLocationFlow(requested.status as any);
+      }
+      if (!active || gate !== 'proceed') return;
+
+      // Instant center from the last known fix, if any.
+      const lastKnown = await Location.getLastKnownPositionAsync();
+      if (active && lastKnown) {
+        setCameraCenter(pickCameraCenter(lastKnown.coords, DEFAULT_CENTER));
+      }
+
+      // Refine with a fresh fix, bounded by a timeout so we never hang.
+      try {
+        const current = await withTimeout(
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          CURRENT_POSITION_TIMEOUT_MS,
+        );
+        // Skip a late refine once drawing has begun so it can't jerk the camera.
+        // (Known v0 tradeoff: this does NOT cover a manual pan before the first
+        // vertex — that pan will still be overridden by the refine.)
+        if (active && verticesLenRef.current === 0) {
+          setCameraCenter(pickCameraCenter(current.coords, DEFAULT_CENTER));
+        }
+      } catch {
+        // Timeout / unavailable: keep last-known (or DEFAULT_CENTER).
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // Runs once on mount for create mode; vertices is read live via closure and
+    // must not re-trigger the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   const screenToCoord = useCallback(
     async (pageX: number, pageY: number): Promise<Position | null> => {
@@ -295,10 +369,9 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
         attributionEnabled={false}
       >
         <Camera
-          defaultSettings={{
-            centerCoordinate: vertices[0] ?? DEFAULT_CENTER,
-            zoomLevel: DEFAULT_ZOOM,
-          }}
+          centerCoordinate={cameraCenter}
+          zoomLevel={DEFAULT_ZOOM}
+          animationDuration={0}
         />
 
         {closed ? (
