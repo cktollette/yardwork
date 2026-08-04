@@ -12,5 +12,9 @@
 // one place: app.json.
 module.exports = ({ config }) => ({
   ...config,
-  plugins: [...(config.plugins ?? []), '@rnmapbox/maps'],
+  // expo-location is added WITHOUT a config object on purpose: with no message
+  // prop the plugin leaves NSLocationWhenInUseUsageDescription to whatever
+  // ios.infoPlist in app.json already sets, keeping that key in exactly one
+  // place (same single-source-of-truth guardrail as the native identifiers).
+  plugins: [...(config.plugins ?? []), '@rnmapbox/maps', 'expo-location'],
 });
