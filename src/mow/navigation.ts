@@ -10,6 +10,8 @@ export type RootStackParamList = {
   Timer: undefined;
   SaveMow: { draft: DraftMow };
   MowList: undefined;
+  /** Edit or delete a single logged mow, loaded by id. */
+  MowDetail: { mowId: string };
   Stats: undefined;
   /**
    * Draw or edit the lawn polygon for a Property. `create` starts empty;

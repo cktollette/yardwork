@@ -78,6 +78,64 @@ describe('MowRepository', () => {
   });
 });
 
+describe('MowRepository.update', () => {
+  it('applies a patch and persists it', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow({ notes: 'before' }));
+    const newStart = saved.startedAt + 3 * 86_400_000;
+
+    const updated = await mowRepository.update(saved.id, {
+      startedAt: newStart,
+      notes: 'after',
+    });
+
+    expect(updated.startedAt).toBe(newStart);
+    expect(updated.durationSeconds).toBe(saved.durationSeconds); // preserved
+    expect(updated.endedAt).toBe(newStart + saved.durationSeconds * 1000);
+    expect(updated.notes).toBe('after');
+
+    // Persisted, not just returned.
+    expect(await mowRepository.getMowById(saved.id)).toEqual(updated);
+  });
+
+  it('rejects an update to an unknown id', async () => {
+    await expect(mowRepository.update('nope', { durationSeconds: 60 })).rejects.toThrow(
+      /nope/,
+    );
+  });
+
+  it('rejects an invalid edit and writes nothing', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow());
+
+    await expect(mowRepository.update(saved.id, { durationSeconds: 0 })).rejects.toThrow();
+
+    // The stored mow is untouched.
+    expect(await mowRepository.getMowById(saved.id)).toEqual(saved);
+  });
+});
+
+describe('MowRepository.delete', () => {
+  it('removes the mow, leaving the others intact', async () => {
+    const a = await mowRepository.saveMow(makeNewMow({ startedAt: 1 }));
+    const b = await mowRepository.saveMow(makeNewMow({ startedAt: 2 }));
+
+    await mowRepository.delete(a.id);
+
+    const remaining = await mowRepository.listMows();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe(b.id);
+  });
+
+  it('is idempotent: deleting an unknown or already-deleted id does not throw', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow());
+
+    await expect(mowRepository.delete('never-existed')).resolves.toBeUndefined();
+    await expect(mowRepository.delete(saved.id)).resolves.toBeUndefined();
+    await expect(mowRepository.delete(saved.id)).resolves.toBeUndefined(); // again, no-op
+
+    expect(await mowRepository.listMows()).toEqual([]);
+  });
+});
+
 describe('PropertyRepository.getOrCreateDefault', () => {
   it('creates a default "My Lawn" Property on first call', async () => {
     const property = await propertyRepository.getOrCreateDefault();
