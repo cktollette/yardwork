@@ -37,14 +37,15 @@ function harness() {
 }
 
 describe('RootTabs', () => {
-  it('renders the tab bar with the Home placeholder and center Mow action', async () => {
+  it('renders the tab bar with the Home screen and center Mow action', async () => {
     let tree!: ReactTestRenderer;
     await act(async () => {
       tree = create(harness());
     });
     const json = JSON.stringify(tree.toJSON());
-    // Home is the initial tab.
-    expect(json).toContain('Home — coming next PR');
+    // Home is the initial tab. With no mows (empty mock storage) it shows the
+    // cold-start welcome.
+    expect(json).toContain('Welcome to Klippa');
     // The center action button.
     expect(json).toContain('MOW');
     // Tab labels present, including the new Log tab.

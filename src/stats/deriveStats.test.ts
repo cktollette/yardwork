@@ -191,3 +191,34 @@ describe('deriveStats — streaks (ISO weeks, grace week)', () => {
     expect(s.longestStreakWeeks).toBe(3);
   });
 });
+
+// Supplementary coverage for the HomeScreen dashboard (PR 2b): the specific
+// cases the dashboard leans on — same calendar-day mows and multi-mow totals.
+describe('deriveStats — same-day mows and totals', () => {
+  it('two mows on the same calendar day count as one streak week', () => {
+    const s = deriveStats(
+      [
+        mow('2026-07-20T08:00:00Z'), // Mon morning
+        mow('2026-07-20T18:00:00Z'), // Mon evening, same day
+      ],
+      { now: NOW },
+    );
+    expect(s.lifetimeMows).toBe(2);
+    expect(s.currentStreakWeeks).toBe(1);
+    expect(s.longestStreakWeeks).toBe(1);
+  });
+
+  it('sums durations and area across multiple mows', () => {
+    const s = deriveStats(
+      [
+        mow('2026-07-06T10:00:00Z', 1800), // 0.5h
+        mow('2026-07-13T10:00:00Z', 3600), // 1.0h
+        mow('2026-07-20T10:00:00Z', 5400), // 1.5h
+      ],
+      { now: NOW, areaSqFt: 5000 },
+    );
+    expect(s.lifetimeMows).toBe(3);
+    expect(s.lifetimeHours).toBeCloseTo(3, 10); // 0.5 + 1 + 1.5
+    expect(s.lifetimeAreaSqFt).toBe(15000); // 5000 * 3 mows
+  });
+});
