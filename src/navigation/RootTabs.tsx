@@ -4,6 +4,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import HomeScreen from '../home/HomeScreen';
 import LawnHomeScreen from '../lawn/LawnHomeScreen';
+import MowListScreen from '../mow/MowListScreen';
 import type { RootStackParamList, RootTabParamList } from '../mow/navigation';
 import StatsScreen from '../stats/StatsScreen';
 import { colors, radii, typography } from '../theme';
@@ -63,6 +64,7 @@ export default function RootTabs() {
         component={HomeScreen}
         options={{
           title: 'Klippa',
+          tabBarLabel: 'Home',
           tabBarIcon: ({ color }) => <TabDot color={color} />,
         }}
       />
@@ -84,10 +86,20 @@ export default function RootTabs() {
         }}
       />
       <Tab.Screen
+        name="Log"
+        component={MowListScreen}
+        options={{
+          title: 'Mow Log',
+          tabBarLabel: 'Log',
+          tabBarIcon: ({ color }) => <TabDot color={color} />,
+        }}
+      />
+      <Tab.Screen
         name="Lawn"
         component={LawnHomeScreen}
         options={{
           title: 'My Lawn',
+          tabBarLabel: 'Lawn',
           tabBarIcon: ({ color }) => <TabDot color={color} />,
         }}
       />

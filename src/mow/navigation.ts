@@ -21,6 +21,8 @@ export type RootTabParamList = {
    * navigator still needs a route entry for it.
    */
   MowAction: undefined;
+  /** The mow log. Its stack root is MowListScreen; MowDetail pushes on the root stack. */
+  Log: undefined;
   Lawn: undefined;
 };
 
@@ -28,7 +30,6 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<RootTabParamList> | undefined;
   Timer: undefined;
   SaveMow: { draft: DraftMow };
-  MowList: undefined;
   /** Edit or delete a single logged mow, loaded by id. */
   MowDetail: { mowId: string };
   /**

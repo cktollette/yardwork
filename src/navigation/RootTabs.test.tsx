@@ -47,8 +47,9 @@ describe('RootTabs', () => {
     expect(json).toContain('Home — coming next PR');
     // The center action button.
     expect(json).toContain('MOW');
-    // Tab labels present.
+    // Tab labels present, including the new Log tab.
     expect(json).toContain('Stats');
-    expect(json).toContain('My Lawn');
+    expect(json).toContain('Log');
+    expect(json).toContain('Lawn');
   });
 });

@@ -1,14 +1,15 @@
 import { useFocusEffect } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import type { Mow } from './models';
-import type { RootStackParamList } from './navigation';
+import type { RootTabScreenProps } from './navigation';
 import { colors, radii, spacing, typography } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'MowList'>;
+// The Log tab's root screen. Navigates to MowDetail, which pushes on the root
+// stack (reachable via the composite navigation prop).
+type Props = RootTabScreenProps<'Log'>;
 
 /** Reverse-chronological list of saved mows: date, duration, notes preview. */
 export default function MowListScreen({ navigation }: Props) {

@@ -68,7 +68,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
             {
               text: 'Not now',
               style: 'cancel',
-              onPress: () => navigation.replace('MowList'),
+              onPress: () => navigation.navigate('Tabs', { screen: 'Log' }),
             },
             {
               text: 'Trace lawn',
@@ -83,8 +83,8 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         return;
       }
 
-      // replace() so Back from the list returns to the timer, not here.
-      navigation.replace('MowList');
+      // End the mow flow: pop back to the tabs and land on the Log tab.
+      navigation.navigate('Tabs', { screen: 'Log' });
     } catch {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');

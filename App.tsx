@@ -5,7 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import LawnDrawScreen from './src/lawn/LawnDrawScreen';
 import MowDetailScreen from './src/mow/MowDetailScreen';
-import MowListScreen from './src/mow/MowListScreen';
 import MowTimerScreen from './src/mow/MowTimerScreen';
 import type { RootStackParamList } from './src/mow/navigation';
 import SaveMowScreen from './src/mow/SaveMowScreen';
@@ -42,11 +41,6 @@ export default function App() {
             name="SaveMow"
             component={SaveMowScreen}
             options={{ title: 'Save Mow' }}
-          />
-          <Stack.Screen
-            name="MowList"
-            component={MowListScreen}
-            options={{ title: 'Mow Log' }}
           />
           <Stack.Screen
             name="MowDetail"
