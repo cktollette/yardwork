@@ -11,6 +11,7 @@ import {
 import Button from '../components/Button';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDateField, formatTimeField, parseDateTimeField } from './datetimeField';
+import { formatMowDate } from './format';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
 import type { RootStackScreenProps } from './navigation';
@@ -41,6 +42,8 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       if (!active) return;
       setMow(loaded);
       if (loaded) {
+        // Title the screen with the mow's date instead of a generic label.
+        navigation.setOptions({ title: formatMowDate(loaded.startedAt) });
         setDateField(formatDateField(loaded.startedAt));
         setTimeField(formatTimeField(loaded.startedAt));
         setMinutesField(String(Math.round(loaded.durationSeconds / 60)));
@@ -50,7 +53,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
     return () => {
       active = false;
     };
-  }, [mowId]);
+  }, [mowId, navigation]);
 
   const handleSave = useCallback(async () => {
     if (!mow || busy) return;

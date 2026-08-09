@@ -22,8 +22,12 @@ export default function App() {
     <SafeAreaProvider>
       <NavigationContainer>
         {/* Root stack: the tabs are the base screen; the mow flow and the
-            full-screen lawn editor push ABOVE the tabs, covering the tab bar. */}
-        <Stack.Navigator>
+            full-screen lawn editor push ABOVE the tabs, covering the tab bar.
+            headerBackButtonDisplayMode "minimal" => chevron-only back buttons,
+            so pushed screens don't inherit a stale text label. */}
+        <Stack.Navigator
+          screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}
+        >
           <Stack.Screen
             name="Tabs"
             component={RootTabs}
@@ -32,7 +36,7 @@ export default function App() {
           <Stack.Screen
             name="Timer"
             component={MowTimerScreen}
-            options={{ title: 'Yardwork' }}
+            options={{ title: 'Mow Timer' }}
           />
           <Stack.Screen
             name="SaveMow"
