@@ -49,10 +49,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'LawnDraw'>;
 const DEFAULT_CENTER: Position = [-96.8236, 33.1507]; // suburban default when location is unavailable
 const DEFAULT_ZOOM = 18.5;
 const ACCENT = colors.primary;
-// No warning color exists in the token palette yet; kept as a local constant
-// rather than mis-mapping it onto destructive/sand. See PR notes (follow-up:
-// add a `warning` token).
-const WARN = '#f59e0b';
+const WARN = colors.warning;
 // Past this the boundary is almost certainly over-tapped, not genuinely complex.
 // A soft warning only — drawing is never blocked.
 const SOFT_VERTEX_WARN = 40;

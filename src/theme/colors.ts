@@ -12,5 +12,6 @@ export const colors = {
   textMuted: '#8B888F',      // ink-derived ~45%, replaces #9ca3af
   border: '#E2DDD5',         // warm border derived from sand, replaces #e5e7eb #d1d5db
   destructive: '#B4534B',    // warmed red, replaces #dc2626 and #fca5a5
+  warning: '#C08A3E',        // caution amber, replaces #f59e0b
   textOnColor: '#FFFFFF',    // text on primary/destructive fills
 } as const;
