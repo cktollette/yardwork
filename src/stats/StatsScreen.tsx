@@ -1,15 +1,15 @@
 import { useFocusEffect } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Button from '../components/Button';
 import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
 import type { Property } from '../mow/models';
-import type { RootStackParamList } from '../mow/navigation';
+import type { RootTabScreenProps } from '../mow/navigation';
 import { hasLawn } from '../lawn/prompts';
 import { colors, radii, spacing, typography } from '../theme';
 import { deriveStats, MIN_MOWS_FOR_AVERAGES, type Stats } from './deriveStats';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Stats'>;
+type Props = RootTabScreenProps<'Stats'>;
 
 function weeks(n: number): string {
   return `${n} ${n === 1 ? 'week' : 'weeks'}`;
@@ -88,18 +88,16 @@ export default function StatsScreen({ navigation }: Props) {
         ) : (
           <>
             <LockedHint text="Draw your lawn to unlock area & efficiency stats" />
-            <Pressable
+            <Button
+              label="Draw your lawn"
+              variant="primary"
               onPress={() =>
                 navigation.navigate('LawnDraw', {
                   propertyId: property.id,
                   mode: 'create',
                 })
               }
-              style={({ pressed }) => [styles.lawnCta, pressed && styles.pressed]}
-              accessibilityRole="button"
-            >
-              <Text style={styles.lawnCtaText}>Draw your lawn</Text>
-            </Pressable>
+            />
           </>
         )}
       </View>
@@ -208,20 +206,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     marginTop: 2,
-  },
-  lawnCta: {
-    marginTop: spacing.xs,
-    paddingVertical: spacing.md,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-  },
-  lawnCtaText: {
-    color: colors.textOnColor,
-    fontSize: typography.body,
-    fontWeight: '600',
-  },
-  pressed: {
-    opacity: 0.8,
   },
 });

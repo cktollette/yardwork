@@ -1,17 +1,16 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import Button from '../components/Button';
 import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
-import type { RootStackParamList } from './navigation';
+import type { RootStackScreenProps } from './navigation';
 import {
   dismissThirdMowPrompt,
   hasLawn,
@@ -20,7 +19,7 @@ import {
 } from '../lawn/prompts';
 import { colors, radii, spacing, typography } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'SaveMow'>;
+type Props = RootStackScreenProps<'SaveMow'>;
 
 /**
  * Shown when the timer stops. Date and duration are pre-filled and read-only;
@@ -69,7 +68,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
             {
               text: 'Not now',
               style: 'cancel',
-              onPress: () => navigation.replace('MowList'),
+              onPress: () => navigation.navigate('Tabs', { screen: 'Log' }),
             },
             {
               text: 'Trace lawn',
@@ -84,8 +83,8 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         return;
       }
 
-      // replace() so Back from the list returns to the timer, not here.
-      navigation.replace('MowList');
+      // End the mow flow: pop back to the tabs and land on the Log tab.
+      navigation.navigate('Tabs', { screen: 'Log' });
     } catch {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');
@@ -125,27 +124,21 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         />
       </View>
 
-      <Pressable
+      <Button
+        label={saving ? 'Saving…' : 'Save'}
+        variant="primary"
+        fullWidth
+        disabled={saving}
         onPress={handleSave}
-        disabled={saving}
-        style={({ pressed }) => [
-          styles.button,
-          styles.save,
-          (pressed || saving) && styles.pressed,
-        ]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save'}</Text>
-      </Pressable>
+      />
 
-      <Pressable
-        onPress={handleDiscard}
+      <Button
+        label="Discard"
+        variant="pill"
+        fullWidth
         disabled={saving}
-        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.discardText}>Discard</Text>
-      </Pressable>
+        onPress={handleDiscard}
+      />
     </ScrollView>
   );
 }
@@ -183,26 +176,5 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: colors.ink,
     backgroundColor: colors.surface,
-  },
-  button: {
-    paddingVertical: spacing.lg,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-  },
-  save: {
-    backgroundColor: colors.primary,
-  },
-  saveText: {
-    color: colors.textOnColor,
-    fontSize: typography.title,
-    fontWeight: '600',
-  },
-  discardText: {
-    color: colors.textSecondary,
-    fontSize: typography.body,
-    fontWeight: '500',
-  },
-  pressed: {
-    opacity: 0.8,
   },
 });

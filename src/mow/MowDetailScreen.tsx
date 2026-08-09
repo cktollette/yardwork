@@ -1,4 +1,3 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -9,14 +8,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Button from '../components/Button';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDateField, formatTimeField, parseDateTimeField } from './datetimeField';
+import { formatMowDate } from './format';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
-import type { RootStackParamList } from './navigation';
+import type { RootStackScreenProps } from './navigation';
 import { colors, radii, spacing, typography } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'MowDetail'>;
+type Props = RootStackScreenProps<'MowDetail'>;
 
 /**
  * Edit or delete a single logged mow. Date and time are plain text fields
@@ -41,6 +42,8 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       if (!active) return;
       setMow(loaded);
       if (loaded) {
+        // Title the screen with the mow's date instead of a generic label.
+        navigation.setOptions({ title: formatMowDate(loaded.startedAt) });
         setDateField(formatDateField(loaded.startedAt));
         setTimeField(formatTimeField(loaded.startedAt));
         setMinutesField(String(Math.round(loaded.durationSeconds / 60)));
@@ -50,7 +53,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
     return () => {
       active = false;
     };
-  }, [mowId]);
+  }, [mowId, navigation]);
 
   const handleSave = useCallback(async () => {
     if (!mow || busy) return;
@@ -191,14 +194,13 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         />
       </View>
 
-      <Pressable
-        onPress={handleSave}
+      <Button
+        label={busy ? 'Saving…' : 'Save changes'}
+        variant="primary"
+        fullWidth
         disabled={busy}
-        style={({ pressed }) => [styles.button, styles.save, (pressed || busy) && styles.pressed]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.saveText}>{busy ? 'Saving…' : 'Save changes'}</Text>
-      </Pressable>
+        onPress={handleSave}
+      />
 
       <Pressable
         onPress={handleDelete}
@@ -244,8 +246,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
   },
-  save: { backgroundColor: colors.primary },
-  saveText: { color: colors.textOnColor, fontSize: typography.title, fontWeight: '600' },
   deleteText: { color: colors.destructive, fontSize: typography.body, fontWeight: '600' },
   pressed: { opacity: 0.8 },
 });
