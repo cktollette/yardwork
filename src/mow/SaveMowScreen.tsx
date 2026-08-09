@@ -18,6 +18,7 @@ import {
   isThirdMowPromptDismissed,
   shouldPromptAfterMow,
 } from '../lawn/prompts';
+import { colors, radii, spacing, typography } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SaveMow'>;
 
@@ -116,7 +117,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
           value={notes}
           onChangeText={setNotes}
           placeholder="How did it go?"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           multiline
           textAlignVertical="top"
           editable={!saving}
@@ -151,23 +152,23 @@ export default function SaveMowScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
-    gap: 24,
-    backgroundColor: '#fff',
+    padding: spacing.xl,
+    gap: spacing.xl,
+    backgroundColor: colors.cream,
     flexGrow: 1,
   },
   field: {
-    gap: 6,
+    gap: spacing.sm,
   },
   fieldLabel: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: typography.caption,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   fieldValue: {
-    fontSize: 20,
-    color: '#111827',
+    fontSize: typography.titleLarge,
+    color: colors.ink,
   },
   duration: {
     fontVariant: ['tabular-nums'],
@@ -176,28 +177,29 @@ const styles = StyleSheet.create({
   notesInput: {
     minHeight: 96,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    color: '#111827',
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    fontSize: typography.body,
+    color: colors.ink,
+    backgroundColor: colors.surface,
   },
   button: {
-    paddingVertical: 16,
-    borderRadius: 999,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.pill,
     alignItems: 'center',
   },
   save: {
-    backgroundColor: '#16a34a',
+    backgroundColor: colors.primary,
   },
   saveText: {
-    color: '#fff',
-    fontSize: 18,
+    color: colors.textOnColor,
+    fontSize: typography.title,
     fontWeight: '600',
   },
   discardText: {
-    color: '#6b7280',
-    fontSize: 16,
+    color: colors.textSecondary,
+    fontSize: typography.body,
     fontWeight: '500',
   },
   pressed: {

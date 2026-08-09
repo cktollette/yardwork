@@ -14,6 +14,7 @@ import { formatDateField, formatTimeField, parseDateTimeField } from './datetime
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
 import type { RootStackParamList } from './navigation';
+import { colors, radii, spacing, typography } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MowDetail'>;
 
@@ -141,7 +142,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={dateField}
           onChangeText={setDateField}
           placeholder="YYYY-MM-DD"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           editable={!busy}
           accessibilityLabel="Mow date"
@@ -155,7 +156,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={timeField}
           onChangeText={setTimeField}
           placeholder="HH:MM"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           editable={!busy}
           accessibilityLabel="Mow start time"
         />
@@ -169,7 +170,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           onChangeText={setMinutesField}
           keyboardType="number-pad"
           placeholder="e.g. 40"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           editable={!busy}
           accessibilityLabel="Mow duration in minutes"
         />
@@ -182,7 +183,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={notes}
           onChangeText={setNotes}
           placeholder="How did it go?"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           multiline
           textAlignVertical="top"
           editable={!busy}
@@ -213,37 +214,38 @@ export default function MowDetailScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
-    gap: 20,
-    backgroundColor: '#fff',
+    padding: spacing.xl,
+    gap: spacing.xl,
+    backgroundColor: colors.cream,
     flexGrow: 1,
   },
-  center: { alignItems: 'center', justifyContent: 'center', gap: 12 },
-  gone: { fontSize: 16, color: '#6b7280', textAlign: 'center' },
-  backLink: { fontSize: 16, color: '#16a34a', fontWeight: '600' },
-  field: { gap: 6 },
+  center: { alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  gone: { fontSize: typography.body, color: colors.textSecondary, textAlign: 'center' },
+  backLink: { fontSize: typography.body, color: colors.primary, fontWeight: '600' },
+  field: { gap: spacing.sm },
   fieldLabel: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: typography.caption,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    color: '#111827',
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    fontSize: typography.body,
+    color: colors.ink,
+    backgroundColor: colors.surface,
   },
   notesInput: { minHeight: 96 },
   button: {
-    paddingVertical: 16,
-    borderRadius: 999,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.pill,
     alignItems: 'center',
   },
-  save: { backgroundColor: '#16a34a' },
-  saveText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  deleteText: { color: '#dc2626', fontSize: 16, fontWeight: '600' },
+  save: { backgroundColor: colors.primary },
+  saveText: { color: colors.textOnColor, fontSize: typography.title, fontWeight: '600' },
+  deleteText: { color: colors.destructive, fontSize: typography.body, fontWeight: '600' },
   pressed: { opacity: 0.8 },
 });

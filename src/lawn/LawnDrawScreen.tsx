@@ -24,6 +24,7 @@ import type { Position } from '../mow/models';
 import type { RootStackParamList } from '../mow/navigation';
 import { propertyRepository } from '../mow/asyncStorageRepositories';
 import { MIN_BOUNDARY_VERTICES } from '../mow/repositories';
+import { colors, radii, spacing, typography } from '../theme';
 import { computeAreaSqFt } from './area';
 import {
   CURRENT_POSITION_TIMEOUT_MS,
@@ -47,7 +48,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'LawnDraw'>;
 
 const DEFAULT_CENTER: Position = [-96.8236, 33.1507]; // suburban default when location is unavailable
 const DEFAULT_ZOOM = 18.5;
-const ACCENT = '#22c55e';
+const ACCENT = colors.primary;
+// No warning color exists in the token palette yet; kept as a local constant
+// rather than mis-mapping it onto destructive/sand. See PR notes (follow-up:
+// add a `warning` token).
 const WARN = '#f59e0b';
 // Past this the boundary is almost certainly over-tapped, not genuinely complex.
 // A soft warning only — drawing is never blocked.
@@ -347,7 +351,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={colors.textOnColor} />
       </View>
     );
   }
@@ -376,7 +380,10 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
 
         {closed ? (
           <ShapeSource id="polygon" shape={polygonShape}>
-            <FillLayer id="polygon-fill" style={{ fillColor: 'rgba(34,197,94,0.35)' }} />
+            <FillLayer
+              id="polygon-fill"
+              style={{ fillColor: colors.primary, fillOpacity: 0.35 }}
+            />
             <LineLayer id="polygon-outline" style={{ lineColor: ACCENT, lineWidth: 3 }} />
           </ShapeSource>
         ) : (
@@ -564,15 +571,18 @@ function VertexHandle({
 }
 
 const styles = StyleSheet.create({
+  // Black backdrop behind the satellite map (intentionally not cream — this is
+  // a full-bleed map screen, no cream ever shows). No black token in the palette.
   container: { flex: 1, backgroundColor: '#000' },
   center: { alignItems: 'center', justifyContent: 'center' },
   map: { flex: 1 },
-  handleHit: { padding: 10 },
+  handleHit: { padding: 10 }, // touch-target geometry, not spacing scale
   handle: {
+    // Vertex dot geometry (18px circle) — positional, not spacing tokens.
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 3,
     borderColor: ACCENT,
   },
@@ -581,51 +591,51 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     backgroundColor: ACCENT,
-    borderColor: '#fff',
+    borderColor: colors.surface,
   },
   topBar: {
     position: 'absolute',
-    left: 12,
-    right: 12,
+    left: spacing.md,
+    right: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: spacing.sm,
   },
   cancel: { minWidth: 60 },
-  cancelText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  cancelText: { color: colors.textOnColor, fontSize: typography.bodySmall, fontWeight: '600' },
   removeText: {
-    color: '#fca5a5',
-    fontSize: 15,
+    color: colors.destructive,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     textAlign: 'right',
   },
   status: {
     flex: 1,
     textAlign: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    color: '#fff',
-    fontSize: 14,
+    backgroundColor: 'rgba(0,0,0,0.6)', // map-chrome scrim, no token
+    color: colors.textOnColor,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
     overflow: 'hidden',
   },
   warnBar: {
     position: 'absolute',
-    left: 12,
-    right: 12,
+    left: spacing.md,
+    right: spacing.md,
     alignItems: 'center',
   },
   warnText: {
     backgroundColor: WARN,
-    color: '#111827',
-    fontSize: 13,
+    color: colors.ink,
+    fontSize: typography.caption,
     fontWeight: '600',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
     overflow: 'hidden',
     textAlign: 'center',
   },
@@ -636,20 +646,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   btn: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 999,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
     minWidth: 84,
     alignItems: 'center',
   },
-  btnIdle: { backgroundColor: 'rgba(255,255,255,0.92)' },
+  btnIdle: { backgroundColor: 'rgba(255,255,255,0.92)' }, // map-chrome scrim, no token
   btnOn: { backgroundColor: ACCENT },
   btnPrimary: { backgroundColor: ACCENT },
   btnDisabled: { opacity: 0.4 },
-  btnText: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  btnTextOn: { color: '#fff' },
+  btnText: { fontSize: typography.bodySmall, fontWeight: '700', color: colors.ink },
+  btnTextOn: { color: colors.textOnColor },
 });
