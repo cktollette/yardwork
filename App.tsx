@@ -9,7 +9,7 @@ import MowListScreen from './src/mow/MowListScreen';
 import MowTimerScreen from './src/mow/MowTimerScreen';
 import type { RootStackParamList } from './src/mow/navigation';
 import SaveMowScreen from './src/mow/SaveMowScreen';
-import StatsScreen from './src/stats/StatsScreen';
+import RootTabs from './src/navigation/RootTabs';
 
 // Set the Mapbox public access token once at app start, before any MapView
 // renders. Loaded from the env; null when unset so no token is baked in.
@@ -21,7 +21,14 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <NavigationContainer>
+        {/* Root stack: the tabs are the base screen; the mow flow and the
+            full-screen lawn editor push ABOVE the tabs, covering the tab bar. */}
         <Stack.Navigator>
+          <Stack.Screen
+            name="Tabs"
+            component={RootTabs}
+            options={{ headerShown: false }}
+          />
           <Stack.Screen
             name="Timer"
             component={MowTimerScreen}
@@ -41,11 +48,6 @@ export default function App() {
             name="MowDetail"
             component={MowDetailScreen}
             options={{ title: 'Mow' }}
-          />
-          <Stack.Screen
-            name="Stats"
-            component={StatsScreen}
-            options={{ title: 'Stats' }}
           />
           <Stack.Screen
             name="LawnDraw"
