@@ -6,6 +6,7 @@ import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositori
 import type { Property } from '../mow/models';
 import type { RootStackParamList } from '../mow/navigation';
 import { hasLawn } from '../lawn/prompts';
+import { colors, radii, spacing, typography } from '../theme';
 import { deriveStats, MIN_MOWS_FOR_AVERAGES, type Stats } from './deriveStats';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Stats'>;
@@ -161,22 +162,23 @@ export default function StatsScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   content: {
-    padding: 16,
-    gap: 20,
+    padding: spacing.lg,
+    gap: spacing.xl,
   },
   section: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 16,
-    gap: 10,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.surface,
   },
   sectionTitle: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: typography.caption,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 2,
@@ -187,36 +189,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rowLabel: {
-    fontSize: 16,
-    color: '#374151',
+    fontSize: typography.body,
+    color: colors.textSecondary,
   },
   rowValue: {
-    fontSize: 16,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
     fontVariant: ['tabular-nums'],
   },
   hint: {
-    fontSize: 14,
-    color: '#9ca3af',
+    fontSize: typography.bodySmall,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   lawnLink: {
-    fontSize: 15,
-    color: '#16a34a',
+    fontSize: typography.bodySmall,
+    color: colors.primary,
     fontWeight: '600',
     marginTop: 2,
   },
   lawnCta: {
-    marginTop: 4,
-    paddingVertical: 12,
-    borderRadius: 999,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.md,
+    borderRadius: radii.pill,
     alignItems: 'center',
-    backgroundColor: '#16a34a',
+    backgroundColor: colors.primary,
   },
   lawnCtaText: {
-    color: '#fff',
-    fontSize: 16,
+    color: colors.textOnColor,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   pressed: {

@@ -6,6 +6,7 @@ import { mowRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import type { Mow } from './models';
 import type { RootStackParamList } from './navigation';
+import { colors, radii, spacing, typography } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MowList'>;
 
@@ -74,34 +75,35 @@ export default function MowListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   listContent: {
-    padding: 16,
-    gap: 12,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: 24,
+    gap: spacing.sm,
+    padding: spacing.xl,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
   },
   emptyHint: {
-    fontSize: 15,
-    color: '#6b7280',
+    fontSize: typography.bodySmall,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   row: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
   },
   rowPressed: {
     opacity: 0.7,
@@ -112,22 +114,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   date: {
-    fontSize: 16,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
   },
   duration: {
-    fontSize: 16,
-    color: '#16a34a',
+    fontSize: typography.body,
+    color: colors.primary,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   notes: {
-    fontSize: 14,
-    color: '#4b5563',
+    fontSize: typography.bodySmall,
+    color: colors.textSecondary,
   },
   noNotes: {
-    color: '#9ca3af',
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
 });
