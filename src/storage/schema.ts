@@ -20,7 +20,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // v3: Mow gained optional `hocInches` (height of cut). Purely additive —
 //     absent reads as "unset", so no data transform runs on upgrade; the bump
 //     just records the shape change.
-export const SCHEMA_VERSION = 3;
+// v4: Equipment collection added (@yardwork/equipment). Purely additive — a
+//     brand-new key; existing collections are untouched and older installs
+//     simply have no equipment, so no data transform runs on upgrade.
+export const SCHEMA_VERSION = 4;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**
