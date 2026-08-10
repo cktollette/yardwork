@@ -41,6 +41,12 @@ export interface Mow {
   durationSeconds: number;
   /** optional free-form note typed on the Save Mow screen */
   notes?: string;
+  /**
+   * Optional height of cut, in inches (e.g. 2.5). Absent means "not set" — the
+   * field is skippable on save and never blocks it. Constrained to the
+   * 0.5"–4.5" range in 0.25" steps by the input; see src/mow/hoc.ts.
+   */
+  hocInches?: number;
 }
 
 /** A mow before it has been persisted; the repository assigns the id. */

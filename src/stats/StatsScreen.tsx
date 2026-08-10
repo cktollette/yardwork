@@ -7,7 +7,13 @@ import type { Property } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
 import { hasLawn } from '../lawn/prompts';
 import { colors, radii, spacing, typography } from '../theme';
-import { deriveStats, MIN_MOWS_FOR_AVERAGES, type Stats } from './deriveStats';
+import { formatHoc } from '../mow/hoc';
+import {
+  deriveStats,
+  MIN_MOWS_FOR_AVERAGES,
+  MIN_MOWS_FOR_AVG_HOC,
+  type Stats,
+} from './deriveStats';
 
 type Props = RootTabScreenProps<'Stats'>;
 
@@ -127,6 +133,17 @@ export default function StatsScreen({ navigation }: Props) {
               value={(stats.avgMowsPerWeek30d as number).toFixed(1)}
             />
           </>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Height of Cut</Text>
+        {stats.averageHocInches === null ? (
+          <LockedHint
+            text={`Log ${MIN_MOWS_FOR_AVG_HOC} mows with a height of cut to unlock average HOC`}
+          />
+        ) : (
+          <StatRow label="Average HOC" value={formatHoc(stats.averageHocInches)} />
         )}
       </View>
 

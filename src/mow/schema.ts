@@ -11,7 +11,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // v2: Property gained `boundary` + `areaSqFt` (lawn polygon). Purely additive —
 //     absent fields read as "no polygon", so no data transform is required on
 //     upgrade; the bump just records the shape change for future migrations.
-export const SCHEMA_VERSION = 2;
+// v3: Mow gained optional `hocInches` (height of cut). Purely additive —
+//     absent reads as "unset", so no data transform runs on upgrade; the bump
+//     just records the shape change.
+export const SCHEMA_VERSION = 3;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**
