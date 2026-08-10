@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -9,14 +9,23 @@ import {
   View,
 } from 'react-native';
 import Button from '../components/Button';
+import { equipmentRepository } from '../equipment/asyncStorageRepositories';
+import EquipmentChips from '../equipment/EquipmentChips';
+import type { Equipment } from '../equipment/models';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDateField, formatTimeField, parseDateTimeField } from './datetimeField';
 import { formatMowDate } from './format';
 import HocField from './HocField';
+import { resolveMowTools } from './tools';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
 import type { RootStackScreenProps } from './navigation';
 import { colors, radii, spacing, typography } from '../theme';
+
+/** Order-insensitive equality for two id lists. */
+function sameIds(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((id) => b.includes(id));
+}
 
 type Props = RootStackScreenProps<'MowDetail'>;
 
@@ -36,27 +45,48 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   const [minutesField, setMinutesField] = useState('');
   const [notes, setNotes] = useState('');
   const [hocInches, setHocInches] = useState<number | undefined>(undefined);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  // The initial garage-filtered tool selection, for diffing on save. Editing
+  // tools drops any dangling ids (self-heal, D-038); leaving them untouched
+  // preserves the stored array exactly (no patch).
+  const initialToolsRef = useRef<string[]>([]);
 
   useEffect(() => {
     let active = true;
-    mowRepository.getMowById(mowId).then((loaded) => {
-      if (!active) return;
-      setMow(loaded);
-      if (loaded) {
-        // Title the screen with the mow's date instead of a generic label.
-        navigation.setOptions({ title: formatMowDate(loaded.startedAt) });
-        setDateField(formatDateField(loaded.startedAt));
-        setTimeField(formatTimeField(loaded.startedAt));
-        setMinutesField(String(Math.round(loaded.durationSeconds / 60)));
-        setNotes(loaded.notes ?? '');
-        setHocInches(loaded.hocInches);
-      }
-    });
+    Promise.all([mowRepository.getMowById(mowId), equipmentRepository.list()]).then(
+      ([loaded, garage]) => {
+        if (!active) return;
+        setMow(loaded);
+        setEquipment(garage);
+        if (loaded) {
+          // Title the screen with the mow's date instead of a generic label.
+          navigation.setOptions({ title: formatMowDate(loaded.startedAt) });
+          setDateField(formatDateField(loaded.startedAt));
+          setTimeField(formatTimeField(loaded.startedAt));
+          setMinutesField(String(Math.round(loaded.durationSeconds / 60)));
+          setNotes(loaded.notes ?? '');
+          setHocInches(loaded.hocInches);
+          // Seed the editable selection from the mow's tools that still exist.
+          const stillHere = resolveMowTools(loaded.equipmentIds, garage).equipment.map(
+            (e) => e.id,
+          );
+          setSelectedIds(stillHere);
+          initialToolsRef.current = stillHere;
+        }
+      },
+    );
     return () => {
       active = false;
     };
   }, [mowId, navigation]);
+
+  const toggleTool = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!mow || busy) return;
@@ -95,6 +125,12 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       patch.hocInches = hocInches;
     }
 
+    // Only include tools when the selection changed vs the garage-filtered
+    // initial set, so an untouched mow keeps any dangling ids it already had.
+    if (!sameIds(selectedIds, initialToolsRef.current)) {
+      patch.equipmentIds = selectedIds;
+    }
+
     if (Object.keys(patch).length === 0) {
       navigation.goBack(); // nothing changed
       return;
@@ -108,7 +144,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       setBusy(false);
       Alert.alert("Couldn't save changes", 'Please check the values and try again.');
     }
-  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, navigation]);
+  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, selectedIds, navigation]);
 
   const handleDelete = useCallback(() => {
     if (!mow || busy) return;
@@ -143,6 +179,10 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       </View>
     );
   }
+
+  // Dangling references: tools this mow logged that no longer exist in the
+  // garage. Silently absent from the selectable chips; surfaced as a footnote.
+  const missingCount = resolveMowTools(mow.equipmentIds, equipment).missingCount;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -188,6 +228,31 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       </View>
 
       <HocField value={hocInches} onChange={setHocInches} disabled={busy} />
+
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Tools (optional)</Text>
+        {equipment.length > 0 ? (
+          <EquipmentChips
+            equipment={equipment}
+            selectedIds={selectedIds}
+            onToggle={toggleTool}
+            disabled={busy}
+            accessibilityLabel="Tools used"
+          />
+        ) : (
+          <Pressable
+            onPress={() => navigation.navigate('Garage')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.addEquipmentLink}>Add your equipment</Text>
+          </Pressable>
+        )}
+        {missingCount > 0 ? (
+          <Text style={styles.toolFootnote}>
+            {`${missingCount} tool${missingCount === 1 ? '' : 's'} no longer in your garage`}
+          </Text>
+        ) : null}
+      </View>
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>
@@ -251,6 +316,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   notesInput: { minHeight: 96 },
+  addEquipmentLink: {
+    fontSize: typography.body,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  toolFootnote: {
+    fontSize: typography.bodySmall,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
   button: {
     paddingVertical: spacing.lg,
     borderRadius: radii.pill,

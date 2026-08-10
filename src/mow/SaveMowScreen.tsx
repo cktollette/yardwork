@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useRef, useState } from 'react';
 import {
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,10 +10,14 @@ import {
   View,
 } from 'react-native';
 import Button from '../components/Button';
+import { equipmentRepository } from '../equipment/asyncStorageRepositories';
+import EquipmentChips from '../equipment/EquipmentChips';
+import type { Equipment } from '../equipment/models';
 import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import HocField from './HocField';
 import { mostRecentHoc } from './hoc';
+import { seedToolSelection } from './tools';
 import type { RootStackScreenProps } from './navigation';
 import {
   dismissThirdMowPrompt,
@@ -32,18 +38,40 @@ export default function SaveMowScreen({ navigation, route }: Props) {
   const { draft } = route.params;
   const [notes, setNotes] = useState('');
   const [hocInches, setHocInches] = useState<number | undefined>(undefined);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Seed HOC + tool selection exactly once; later focuses (e.g. after adding
+  // equipment via the empty-garage link) just refresh the chip list without
+  // clobbering what the user has already toggled.
+  const seededRef = useRef(false);
 
-  // Default the HOC to the most recently set one (D-025). If no prior mow has a
-  // HOC, it stays unset and HocField shows its "Set HOC" affordance.
-  useEffect(() => {
-    let active = true;
-    mowRepository.listMows().then((mows) => {
-      if (active) setHocInches(mostRecentHoc(mows));
-    });
-    return () => {
-      active = false;
-    };
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      Promise.all([mowRepository.listMows(), equipmentRepository.list()]).then(
+        ([mows, garage]) => {
+          if (!active) return;
+          setEquipment(garage);
+          if (!seededRef.current) {
+            // Progressive disclosure: default from the most recent mow (D-025 for
+            // HOC; D-039 for tools, filtered to still-existing garage).
+            setHocInches(mostRecentHoc(mows));
+            setSelectedIds(seedToolSelection(mows, garage));
+            seededRef.current = true;
+          }
+        },
+      );
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const toggleTool = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -60,6 +88,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         durationSeconds: draft.durationSeconds,
         ...(trimmed ? { notes: trimmed } : {}),
         ...(hocInches != null ? { hocInches } : {}),
+        ...(selectedIds.length ? { equipmentIds: selectedIds } : {}),
       });
 
       // Once they've logged a few mows but still have no lawn, nudge them once
@@ -105,7 +134,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');
     }
-  }, [saving, notes, hocInches, draft, navigation]);
+  }, [saving, notes, hocInches, selectedIds, draft, navigation]);
 
   const handleDiscard = useCallback(() => {
     navigation.goBack();
@@ -126,6 +155,26 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       </View>
 
       <HocField value={hocInches} onChange={setHocInches} disabled={saving} />
+
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Tools (optional)</Text>
+        {equipment.length > 0 ? (
+          <EquipmentChips
+            equipment={equipment}
+            selectedIds={selectedIds}
+            onToggle={toggleTool}
+            disabled={saving}
+            accessibilityLabel="Tools used"
+          />
+        ) : (
+          <Pressable
+            onPress={() => navigation.navigate('Garage')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.addEquipmentLink}>Add your equipment</Text>
+          </Pressable>
+        )}
+      </View>
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>
@@ -183,6 +232,11 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontVariant: ['tabular-nums'],
+    fontWeight: '600',
+  },
+  addEquipmentLink: {
+    fontSize: typography.body,
+    color: colors.primary,
     fontWeight: '600',
   },
   notesInput: {
