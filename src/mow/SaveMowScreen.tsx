@@ -15,6 +15,7 @@ import HocField from './HocField';
 import { mostRecentHoc } from './hoc';
 import ToolTypePicker from './ToolTypePicker';
 import { mostRecentToolTypes, normalizeToolTypes } from './tools';
+import { formatShortDuration, needsShortMowConfirmation } from './mowValidation';
 import type { RootStackScreenProps } from './navigation';
 import {
   dismissThirdMowPrompt,
@@ -57,7 +58,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
     );
   }, []);
 
-  const handleSave = useCallback(async () => {
+  const performSave = useCallback(async () => {
     if (saving) return;
     setSaving(true);
     try {
@@ -123,6 +124,24 @@ export default function SaveMowScreen({ navigation, route }: Props) {
   const handleDiscard = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
+
+  // A sub-floor duration is usually a timer mis-tap, so soft-confirm before
+  // saving rather than block — a genuinely quick pass still saves untouched.
+  // Timer flow only; editing an existing mow (MowDetailScreen) never gates.
+  const handleSave = useCallback(() => {
+    if (needsShortMowConfirmation(draft.durationSeconds)) {
+      Alert.alert(
+        `That was quick — save this ${formatShortDuration(draft.durationSeconds)} mow?`,
+        undefined,
+        [
+          { text: 'Save anyway', onPress: () => void performSave() },
+          { text: 'Discard', style: 'destructive', onPress: handleDiscard },
+        ],
+      );
+      return;
+    }
+    void performSave();
+  }, [draft, performSave, handleDiscard]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
