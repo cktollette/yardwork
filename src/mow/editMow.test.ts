@@ -64,6 +64,25 @@ describe('applyMowEdit', () => {
     expect(applyMowEdit(mow, { durationSeconds: 100 }).notes).toBe('keep me');
   });
 
+  it('sets hocInches from a patch, snapping to the valid grid', () => {
+    const mow = makeMow();
+    expect(applyMowEdit(mow, { hocInches: 2.5 }).hocInches).toBe(2.5);
+    // Off-grid / out-of-range values are clamped and snapped.
+    expect(applyMowEdit(mow, { hocInches: 2.6 }).hocInches).toBe(2.5);
+    expect(applyMowEdit(mow, { hocInches: 99 }).hocInches).toBe(4.5);
+  });
+
+  it('clears hocInches when the patch value is undefined', () => {
+    const mow = makeMow({ hocInches: 3 });
+    const edited = applyMowEdit(mow, { hocInches: undefined });
+    expect('hocInches' in edited).toBe(false);
+  });
+
+  it('leaves hocInches untouched when the patch omits it', () => {
+    const mow = makeMow({ hocInches: 2.25 });
+    expect(applyMowEdit(mow, { durationSeconds: 100 }).hocInches).toBe(2.25);
+  });
+
   it('rejects an edit that makes endedAt <= startedAt', () => {
     const mow = makeMow();
     expect(() => applyMowEdit(mow, { durationSeconds: 0 })).toThrow();

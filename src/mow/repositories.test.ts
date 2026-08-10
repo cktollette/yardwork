@@ -105,6 +105,28 @@ describe('MowRepository — hocInches (schema v3, additive)', () => {
     const [listed] = await mowRepository.listMows();
     expect(listed.hocInches).toBeUndefined();
   });
+
+  it('sets hocInches on an old record via update', async () => {
+    const legacy = {
+      id: 'legacy-2',
+      propertyId: 'prop-1',
+      startedAt: 1_700_000_000_000,
+      endedAt: 1_700_000_000_000 + 2400 * 1000,
+      durationSeconds: 2400,
+    };
+    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify([legacy]));
+
+    const updated = await mowRepository.update('legacy-2', { hocInches: 3 });
+    expect(updated.hocInches).toBe(3);
+    expect((await mowRepository.getMowById('legacy-2'))?.hocInches).toBe(3);
+  });
+
+  it('clears hocInches via update with an undefined patch value', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow({ hocInches: 2 }));
+    const updated = await mowRepository.update(saved.id, { hocInches: undefined });
+    expect('hocInches' in updated).toBe(false);
+    expect((await mowRepository.getMowById(saved.id))?.hocInches).toBeUndefined();
+  });
 });
 
 describe('MowRepository.update', () => {

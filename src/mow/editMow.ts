@@ -1,3 +1,4 @@
+import { clampHoc } from './hoc';
 import type { Mow } from './models';
 
 /**
@@ -6,6 +7,8 @@ import type { Mow } from './models';
  *  - `startedAt` alone shifts `endedAt` to preserve the existing duration;
  *  - `durationSeconds` alone recomputes `endedAt` from the existing start;
  *  - `notes` sets the note, or clears it when blank/whitespace-only.
+ *  - `hocInches` sets the height of cut (clamped/snapped), or clears it when
+ *    the patch value is `undefined`.
  * Nothing else about a mow is editable.
  */
 export interface MowEdit {
@@ -15,6 +18,11 @@ export interface MowEdit {
   durationSeconds?: number;
   /** New note; blank/whitespace clears it. Omit the key to leave notes as-is. */
   notes?: string;
+  /**
+   * New height of cut (inches); clamped/snapped to the valid grid. An explicit
+   * `undefined` clears it. Omit the key to leave the HOC as-is.
+   */
+  hocInches?: number;
 }
 
 /**
@@ -38,6 +46,14 @@ export function applyMowEdit(mow: Mow, patch: MowEdit): Mow {
     const trimmed = (patch.notes ?? '').trim();
     if (trimmed) next.notes = trimmed;
     else delete next.notes;
+  }
+
+  if ('hocInches' in patch) {
+    if (typeof patch.hocInches === 'number' && Number.isFinite(patch.hocInches)) {
+      next.hocInches = clampHoc(patch.hocInches);
+    } else {
+      delete next.hocInches;
+    }
   }
 
   return next;
