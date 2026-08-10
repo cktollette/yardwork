@@ -1,40 +1,37 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { EQUIPMENT_TYPES, equipmentTypeShortLabel } from '../equipment/catalog';
+import type { EquipmentType } from '../equipment/models';
 import { colors, radii, spacing, typography } from '../theme';
-import { displayName } from './equipment';
-import type { Equipment } from './models';
 
 type Props = {
-  equipment: Equipment[];
-  /** Ids currently selected. */
-  selectedIds: string[];
-  onToggle: (id: string) => void;
+  /** Currently-selected job types. */
+  selected: EquipmentType[];
+  onToggle: (type: EquipmentType) => void;
   disabled?: boolean;
   accessibilityLabel?: string;
 };
 
 /**
- * A wrapping row of garage equipment as multi-select toggle chips (label =
- * display name). Selected chips fill with the brand green; the rest are bordered
- * surfaces. The single-select sibling is SegmentedControl; this one allows any
- * number of selections. All values from theme tokens.
+ * The four fixed job-type chips — Mow · Trim · Edge · Blow — as a multi-select.
+ * Plain enum values, no garage dependency. Selected chips fill with the brand
+ * green; the rest are bordered surfaces. Token-styled.
  */
-export default function EquipmentChips({
-  equipment,
-  selectedIds,
+export default function ToolTypePicker({
+  selected,
   onToggle,
   disabled = false,
   accessibilityLabel,
 }: Props) {
-  const selected = new Set(selectedIds);
+  const chosen = new Set(selected);
   return (
     <View style={styles.row} accessibilityLabel={accessibilityLabel}>
-      {equipment.map((item) => {
-        const isSelected = selected.has(item.id);
-        const label = displayName(item);
+      {EQUIPMENT_TYPES.map(({ value }) => {
+        const isSelected = chosen.has(value);
+        const label = equipmentTypeShortLabel(value);
         return (
           <Pressable
-            key={item.id}
-            onPress={() => onToggle(item.id)}
+            key={value}
+            onPress={() => onToggle(value)}
             disabled={disabled}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: isSelected, disabled }}

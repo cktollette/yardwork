@@ -1,5 +1,4 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import type { Equipment } from '../equipment/models';
 import MowListScreen from './MowListScreen';
 import type { Mow } from './models';
 
@@ -11,29 +10,11 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('./asyncStorageRepositories', () => ({
   mowRepository: { listMows: jest.fn() },
 }));
-jest.mock('../equipment/asyncStorageRepositories', () => ({
-  equipmentRepository: { list: jest.fn() },
-}));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { mowRepository } = require('./asyncStorageRepositories');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { equipmentRepository } = require('../equipment/asyncStorageRepositories');
 
 const navigation = { navigate: jest.fn() };
-
-function eq(id: string, overrides: Partial<Equipment> = {}): Equipment {
-  return {
-    id,
-    type: 'mower',
-    brand: 'Toro',
-    model: 'Recycler 22',
-    powerSource: 'gas',
-    catalogId: null,
-    createdAt: 1_700_000_000_000,
-    ...overrides,
-  };
-}
 
 function mow(overrides: Partial<Mow> = {}): Mow {
   return {
@@ -56,29 +37,23 @@ async function renderList(): Promise<ReactTestRenderer> {
 
 beforeEach(() => jest.clearAllMocks());
 
-describe('MowListScreen — tool indicators with dangling ids', () => {
-  it('renders only badges for resolvable tools and does not crash on a dangling id', async () => {
-    mowRepository.listMows.mockResolvedValue([
-      // References a live trimmer and a since-deleted mower id.
-      mow({ equipmentIds: ['trimmer-1', 'deleted-mower'] }),
-    ]);
-    equipmentRepository.list.mockResolvedValue([
-      eq('trimmer-1', { type: 'trimmer', brand: 'Stihl', model: 'FS 56' }),
-    ]);
+describe('MowListScreen — job-type badges', () => {
+  it('renders a badge per job type recorded on the mow', async () => {
+    mowRepository.listMows.mockResolvedValue([mow({ toolTypes: ['mower', 'blower'] })]);
 
     const tree = await renderList();
     const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Trim'); // resolvable trimmer badge
-    expect(json).not.toContain('Mow'); // dangling mower id contributes nothing
+    expect(json).toContain('Mow');
+    expect(json).toContain('Blow');
+    expect(json).not.toContain('Trim'); // not recorded
   });
 
-  it('shows no tool badges when a mow logged no tools', async () => {
-    mowRepository.listMows.mockResolvedValue([mow({ equipmentIds: undefined })]);
-    equipmentRepository.list.mockResolvedValue([]);
+  it('shows no badges when a mow recorded no tools', async () => {
+    mowRepository.listMows.mockResolvedValue([mow({ toolTypes: undefined })]);
 
     const tree = await renderList();
     const json = JSON.stringify(tree.toJSON());
     expect(json).not.toContain('Trim');
-    expect(json).not.toContain('Mow');
+    expect(json).not.toContain('Blow');
   });
 });

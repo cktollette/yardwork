@@ -4,7 +4,7 @@ import type { EquipmentType } from '../equipment/models';
 import { colors, radii, spacing, typography } from '../theme';
 
 type Props = {
-  /** Distinct tool types used, already in canonical order (see mowToolTypes). */
+  /** Job types performed, already deduped/ordered (see normalizeToolTypes). */
   types: EquipmentType[];
 };
 
