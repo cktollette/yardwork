@@ -1,5 +1,4 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -9,13 +8,24 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Button from '../components/Button';
+import type { EquipmentType } from '../equipment/models';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDateField, formatTimeField, parseDateTimeField } from './datetimeField';
+import { formatMowDate } from './format';
+import HocField from './HocField';
+import ToolTypePicker from './ToolTypePicker';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
-import type { RootStackParamList } from './navigation';
+import type { RootStackScreenProps } from './navigation';
+import { colors, radii, spacing, typography } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'MowDetail'>;
+/** Order-insensitive equality for two type lists. */
+function sameTypes(a: EquipmentType[], b: EquipmentType[]): boolean {
+  return a.length === b.length && a.every((t) => b.includes(t));
+}
+
+type Props = RootStackScreenProps<'MowDetail'>;
 
 /**
  * Edit or delete a single logged mow. Date and time are plain text fields
@@ -32,7 +42,12 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   const [timeField, setTimeField] = useState('');
   const [minutesField, setMinutesField] = useState('');
   const [notes, setNotes] = useState('');
+  const [hocInches, setHocInches] = useState<number | undefined>(undefined);
+  const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
   const [busy, setBusy] = useState(false);
+  // The mow's job types as loaded, for diffing on save so an untouched selection
+  // produces no patch.
+  const initialToolsRef = useRef<EquipmentType[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -40,16 +55,28 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       if (!active) return;
       setMow(loaded);
       if (loaded) {
+        // Title the screen with the mow's date instead of a generic label.
+        navigation.setOptions({ title: formatMowDate(loaded.startedAt) });
         setDateField(formatDateField(loaded.startedAt));
         setTimeField(formatTimeField(loaded.startedAt));
         setMinutesField(String(Math.round(loaded.durationSeconds / 60)));
         setNotes(loaded.notes ?? '');
+        setHocInches(loaded.hocInches);
+        const loadedTools = loaded.toolTypes ?? [];
+        setToolTypes(loadedTools);
+        initialToolsRef.current = loadedTools;
       }
     });
     return () => {
       active = false;
     };
-  }, [mowId]);
+  }, [mowId, navigation]);
+
+  const toggleTool = useCallback((type: EquipmentType) => {
+    setToolTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    );
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!mow || busy) return;
@@ -83,6 +110,16 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       patch.notes = notes;
     }
 
+    // Only include HOC when it actually changed; an explicit undefined clears it.
+    if (hocInches !== mow.hocInches) {
+      patch.hocInches = hocInches;
+    }
+
+    // Only include tools when the selection actually changed.
+    if (!sameTypes(toolTypes, initialToolsRef.current)) {
+      patch.toolTypes = toolTypes;
+    }
+
     if (Object.keys(patch).length === 0) {
       navigation.goBack(); // nothing changed
       return;
@@ -96,7 +133,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       setBusy(false);
       Alert.alert("Couldn't save changes", 'Please check the values and try again.');
     }
-  }, [mow, busy, dateField, timeField, minutesField, notes, navigation]);
+  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, toolTypes, navigation]);
 
   const handleDelete = useCallback(() => {
     if (!mow || busy) return;
@@ -141,7 +178,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={dateField}
           onChangeText={setDateField}
           placeholder="YYYY-MM-DD"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           editable={!busy}
           accessibilityLabel="Mow date"
@@ -155,7 +192,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={timeField}
           onChangeText={setTimeField}
           placeholder="HH:MM"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           editable={!busy}
           accessibilityLabel="Mow start time"
         />
@@ -169,9 +206,21 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           onChangeText={setMinutesField}
           keyboardType="number-pad"
           placeholder="e.g. 40"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           editable={!busy}
           accessibilityLabel="Mow duration in minutes"
+        />
+      </View>
+
+      <HocField value={hocInches} onChange={setHocInches} disabled={busy} />
+
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Tools (optional)</Text>
+        <ToolTypePicker
+          selected={toolTypes}
+          onToggle={toggleTool}
+          disabled={busy}
+          accessibilityLabel="Jobs done"
         />
       </View>
 
@@ -182,7 +231,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={notes}
           onChangeText={setNotes}
           placeholder="How did it go?"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           multiline
           textAlignVertical="top"
           editable={!busy}
@@ -190,14 +239,13 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         />
       </View>
 
-      <Pressable
-        onPress={handleSave}
+      <Button
+        label={busy ? 'Saving…' : 'Save changes'}
+        variant="primary"
+        fullWidth
         disabled={busy}
-        style={({ pressed }) => [styles.button, styles.save, (pressed || busy) && styles.pressed]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.saveText}>{busy ? 'Saving…' : 'Save changes'}</Text>
-      </Pressable>
+        onPress={handleSave}
+      />
 
       <Pressable
         onPress={handleDelete}
@@ -213,37 +261,36 @@ export default function MowDetailScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
-    gap: 20,
-    backgroundColor: '#fff',
+    padding: spacing.xl,
+    gap: spacing.xl,
+    backgroundColor: colors.cream,
     flexGrow: 1,
   },
-  center: { alignItems: 'center', justifyContent: 'center', gap: 12 },
-  gone: { fontSize: 16, color: '#6b7280', textAlign: 'center' },
-  backLink: { fontSize: 16, color: '#16a34a', fontWeight: '600' },
-  field: { gap: 6 },
+  center: { alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  gone: { fontSize: typography.body, color: colors.textSecondary, textAlign: 'center' },
+  backLink: { fontSize: typography.body, color: colors.primary, fontWeight: '600' },
+  field: { gap: spacing.sm },
   fieldLabel: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: typography.caption,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    color: '#111827',
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    fontSize: typography.body,
+    color: colors.ink,
+    backgroundColor: colors.surface,
   },
   notesInput: { minHeight: 96 },
   button: {
-    paddingVertical: 16,
-    borderRadius: 999,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.pill,
     alignItems: 'center',
   },
-  save: { backgroundColor: '#16a34a' },
-  saveText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  deleteText: { color: '#dc2626', fontSize: 16, fontWeight: '600' },
+  deleteText: { color: colors.destructive, fontSize: typography.body, fontWeight: '600' },
   pressed: { opacity: 0.8 },
 });

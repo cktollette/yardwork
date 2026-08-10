@@ -10,6 +10,11 @@ function mow(startISO: string, durationSeconds = 1800): StatsMow {
   return { startedAt, endedAt: startedAt + durationSeconds * 1000, durationSeconds };
 }
 
+/** Like `mow`, but carries a height of cut (inches). */
+function mowH(startISO: string, hocInches: number, durationSeconds = 1800): StatsMow {
+  return { ...mow(startISO, durationSeconds), hocInches };
+}
+
 // Reference calendar (2026): Jul 1 = Wed, Jul 4 = Sat, Jul 5 = Sun, Jul 6 = Mon.
 const NOW = Date.parse('2026-07-22T12:00:00Z'); // a Wednesday
 
@@ -24,6 +29,7 @@ describe('deriveStats — lifetime + gating', () => {
     expect(s.currentStreakWeeks).toBe(0);
     expect(s.longestStreakWeeks).toBe(0);
     expect(s.sqFtPerMinute).toBeNull();
+    expect(s.averageHocInches).toBeNull();
   });
 
   it('empty log with a polygon: lifetime area is 0, efficiency still null (no mows)', () => {
@@ -114,6 +120,69 @@ describe('deriveStats — polygon gating for area stats', () => {
   });
 });
 
+describe('deriveStats — average height of cut', () => {
+  it('is null when no mow has a height of cut, even with plenty of mows', () => {
+    const s = deriveStats(
+      [
+        mow('2026-07-06T10:00:00Z'),
+        mow('2026-07-13T10:00:00Z'),
+        mow('2026-07-20T10:00:00Z'),
+      ],
+      { now: NOW },
+    );
+    expect(s.averageHocInches).toBeNull();
+  });
+
+  it('stays gated at exactly one below the threshold (2 mows with a HOC)', () => {
+    const s = deriveStats(
+      [mowH('2026-07-13T10:00:00Z', 2.5), mowH('2026-07-20T10:00:00Z', 3)],
+      { now: NOW },
+    );
+    expect(s.averageHocInches).toBeNull();
+  });
+
+  it('unlocks at exactly 3 mows with a HOC', () => {
+    const s = deriveStats(
+      [
+        mowH('2026-07-06T10:00:00Z', 2.5),
+        mowH('2026-07-13T10:00:00Z', 3),
+        mowH('2026-07-20T10:00:00Z', 3.5),
+      ],
+      { now: NOW },
+    );
+    // (2.5 + 3 + 3.5) / 3 = 3
+    expect(s.averageHocInches).toBe(3);
+  });
+
+  it('averages only the mows that have a HOC, ignoring the rest', () => {
+    const s = deriveStats(
+      [
+        mowH('2026-07-01T10:00:00Z', 2),
+        mow('2026-07-06T10:00:00Z'), // no HOC — excluded
+        mowH('2026-07-13T10:00:00Z', 2.5),
+        mow('2026-07-18T10:00:00Z'), // no HOC — excluded
+        mowH('2026-07-20T10:00:00Z', 3),
+      ],
+      { now: NOW },
+    );
+    // 5 mows total but only 3 have a HOC: (2 + 2.5 + 3) / 3 = 2.5
+    expect(s.averageHocInches).toBe(2.5);
+  });
+
+  it('rounds the mean to two decimals', () => {
+    const s = deriveStats(
+      [
+        mowH('2026-07-06T10:00:00Z', 2.5),
+        mowH('2026-07-13T10:00:00Z', 2.75),
+        mowH('2026-07-20T10:00:00Z', 2.75),
+      ],
+      { now: NOW },
+    );
+    // (2.5 + 2.75 + 2.75) / 3 = 2.6666... -> 2.67
+    expect(s.averageHocInches).toBe(2.67);
+  });
+});
+
 describe('isoWeekIndex — Sunday vs Monday week boundary', () => {
   it('Saturday and Sunday of the same weekend share one ISO week', () => {
     expect(isoWeekIndex(Date.parse('2026-07-04T12:00:00Z'))).toBe(
@@ -189,5 +258,36 @@ describe('deriveStats — streaks (ISO weeks, grace week)', () => {
       { now: NOW },
     );
     expect(s.longestStreakWeeks).toBe(3);
+  });
+});
+
+// Supplementary coverage for the HomeScreen dashboard (PR 2b): the specific
+// cases the dashboard leans on — same calendar-day mows and multi-mow totals.
+describe('deriveStats — same-day mows and totals', () => {
+  it('two mows on the same calendar day count as one streak week', () => {
+    const s = deriveStats(
+      [
+        mow('2026-07-20T08:00:00Z'), // Mon morning
+        mow('2026-07-20T18:00:00Z'), // Mon evening, same day
+      ],
+      { now: NOW },
+    );
+    expect(s.lifetimeMows).toBe(2);
+    expect(s.currentStreakWeeks).toBe(1);
+    expect(s.longestStreakWeeks).toBe(1);
+  });
+
+  it('sums durations and area across multiple mows', () => {
+    const s = deriveStats(
+      [
+        mow('2026-07-06T10:00:00Z', 1800), // 0.5h
+        mow('2026-07-13T10:00:00Z', 3600), // 1.0h
+        mow('2026-07-20T10:00:00Z', 5400), // 1.5h
+      ],
+      { now: NOW, areaSqFt: 5000 },
+    );
+    expect(s.lifetimeMows).toBe(3);
+    expect(s.lifetimeHours).toBeCloseTo(3, 10); // 0.5 + 1 + 1.5
+    expect(s.lifetimeAreaSqFt).toBe(15000); // 5000 * 3 mows
   });
 });

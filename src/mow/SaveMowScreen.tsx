@@ -1,25 +1,30 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import Button from '../components/Button';
+import type { EquipmentType } from '../equipment/models';
 import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
-import type { RootStackParamList } from './navigation';
+import HocField from './HocField';
+import { mostRecentHoc } from './hoc';
+import ToolTypePicker from './ToolTypePicker';
+import { mostRecentToolTypes, normalizeToolTypes } from './tools';
+import type { RootStackScreenProps } from './navigation';
 import {
   dismissThirdMowPrompt,
   hasLawn,
   isThirdMowPromptDismissed,
   shouldPromptAfterMow,
 } from '../lawn/prompts';
+import { colors, radii, spacing, typography } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'SaveMow'>;
+type Props = RootStackScreenProps<'SaveMow'>;
 
 /**
  * Shown when the timer stops. Date and duration are pre-filled and read-only;
@@ -29,7 +34,28 @@ type Props = NativeStackScreenProps<RootStackParamList, 'SaveMow'>;
 export default function SaveMowScreen({ navigation, route }: Props) {
   const { draft } = route.params;
   const [notes, setNotes] = useState('');
+  const [hocInches, setHocInches] = useState<number | undefined>(undefined);
+  const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Default HOC and job types from the most recent mow (progressive disclosure).
+  useEffect(() => {
+    let active = true;
+    mowRepository.listMows().then((mows) => {
+      if (!active) return;
+      setHocInches(mostRecentHoc(mows));
+      setToolTypes(mostRecentToolTypes(mows) ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const toggleTool = useCallback((type: EquipmentType) => {
+    setToolTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    );
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (saving) return;
@@ -38,12 +64,15 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       // Every mow needs a Property (D-005); create the default on first save.
       const property = await propertyRepository.getOrCreateDefault();
       const trimmed = notes.trim();
+      const normalizedTools = normalizeToolTypes(toolTypes);
       await mowRepository.saveMow({
         propertyId: property.id,
         startedAt: draft.startedAt,
         endedAt: draft.endedAt,
         durationSeconds: draft.durationSeconds,
         ...(trimmed ? { notes: trimmed } : {}),
+        ...(hocInches != null ? { hocInches } : {}),
+        ...(normalizedTools ? { toolTypes: normalizedTools } : {}),
       });
 
       // Once they've logged a few mows but still have no lawn, nudge them once
@@ -68,7 +97,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
             {
               text: 'Not now',
               style: 'cancel',
-              onPress: () => navigation.replace('MowList'),
+              onPress: () => navigation.navigate('Tabs', { screen: 'Log' }),
             },
             {
               text: 'Trace lawn',
@@ -83,13 +112,13 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         return;
       }
 
-      // replace() so Back from the list returns to the timer, not here.
-      navigation.replace('MowList');
+      // End the mow flow: pop back to the tabs and land on the Log tab.
+      navigation.navigate('Tabs', { screen: 'Log' });
     } catch {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');
     }
-  }, [saving, notes, draft, navigation]);
+  }, [saving, notes, hocInches, toolTypes, draft, navigation]);
 
   const handleDiscard = useCallback(() => {
     navigation.goBack();
@@ -109,6 +138,18 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         </Text>
       </View>
 
+      <HocField value={hocInches} onChange={setHocInches} disabled={saving} />
+
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Tools (optional)</Text>
+        <ToolTypePicker
+          selected={toolTypes}
+          onToggle={toggleTool}
+          disabled={saving}
+          accessibilityLabel="Jobs done"
+        />
+      </View>
+
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>
         <TextInput
@@ -116,7 +157,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
           value={notes}
           onChangeText={setNotes}
           placeholder="How did it go?"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           multiline
           textAlignVertical="top"
           editable={!saving}
@@ -124,50 +165,44 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         />
       </View>
 
-      <Pressable
+      <Button
+        label={saving ? 'Saving…' : 'Save'}
+        variant="primary"
+        fullWidth
+        disabled={saving}
         onPress={handleSave}
-        disabled={saving}
-        style={({ pressed }) => [
-          styles.button,
-          styles.save,
-          (pressed || saving) && styles.pressed,
-        ]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save'}</Text>
-      </Pressable>
+      />
 
-      <Pressable
-        onPress={handleDiscard}
+      <Button
+        label="Discard"
+        variant="pill"
+        fullWidth
         disabled={saving}
-        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.discardText}>Discard</Text>
-      </Pressable>
+        onPress={handleDiscard}
+      />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
-    gap: 24,
-    backgroundColor: '#fff',
+    padding: spacing.xl,
+    gap: spacing.xl,
+    backgroundColor: colors.cream,
     flexGrow: 1,
   },
   field: {
-    gap: 6,
+    gap: spacing.sm,
   },
   fieldLabel: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: typography.caption,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   fieldValue: {
-    fontSize: 20,
-    color: '#111827',
+    fontSize: typography.titleLarge,
+    color: colors.ink,
   },
   duration: {
     fontVariant: ['tabular-nums'],
@@ -176,31 +211,11 @@ const styles = StyleSheet.create({
   notesInput: {
     minHeight: 96,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    color: '#111827',
-  },
-  button: {
-    paddingVertical: 16,
-    borderRadius: 999,
-    alignItems: 'center',
-  },
-  save: {
-    backgroundColor: '#16a34a',
-  },
-  saveText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  discardText: {
-    color: '#6b7280',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  pressed: {
-    opacity: 0.8,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    fontSize: typography.body,
+    color: colors.ink,
+    backgroundColor: colors.surface,
   },
 });

@@ -15,6 +15,7 @@ import {
   isOnboardingDismissed,
   shouldShowOnboarding,
 } from '../lawn/prompts';
+import { colors, radii, spacing, typography } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Timer'>;
 
@@ -140,14 +141,7 @@ export default function MowTimerScreen({ navigation }: Props) {
       {!isRunning && (
         <View style={styles.links}>
           <Pressable
-            onPress={() => navigation.navigate('MowList')}
-            style={({ pressed }) => pressed && styles.pressed}
-            accessibilityRole="button"
-          >
-            <Text style={styles.link}>View log</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => navigation.navigate('Stats')}
+            onPress={() => navigation.navigate('Tabs', { screen: 'Stats' })}
             style={({ pressed }) => pressed && styles.pressed}
             accessibilityRole="button"
           >
@@ -162,43 +156,43 @@ export default function MowTimerScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 32,
+    gap: spacing.xxl,
   },
   label: {
-    fontSize: 18,
-    color: '#4b5563',
+    fontSize: typography.title,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   time: {
-    fontSize: 72,
+    fontSize: typography.display,
     fontWeight: '200',
     fontVariant: ['tabular-nums'],
-    color: '#111827',
+    color: colors.ink,
   },
   button: {
-    paddingVertical: 18,
-    paddingHorizontal: 64,
-    borderRadius: 999,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xxl * 2,
+    borderRadius: radii.pill,
   },
-  start: { backgroundColor: '#16a34a' },
-  stop: { backgroundColor: '#dc2626' },
+  start: { backgroundColor: colors.primary },
+  stop: { backgroundColor: colors.destructive },
   pressed: { opacity: 0.8 },
   buttonText: {
-    color: '#fff',
-    fontSize: 22,
+    color: colors.textOnColor,
+    fontSize: typography.heading,
     fontWeight: '600',
   },
   links: {
     flexDirection: 'row',
-    gap: 32,
+    gap: spacing.xxl,
   },
   link: {
-    fontSize: 16,
-    color: '#16a34a',
+    fontSize: typography.body,
+    color: colors.primary,
     fontWeight: '600',
   },
 });

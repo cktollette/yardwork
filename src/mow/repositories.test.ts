@@ -6,7 +6,7 @@ import {
   propertyRepository,
 } from './asyncStorageRepositories';
 import type { NewMow, Position } from './models';
-import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './schema';
+import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from '../storage/schema';
 
 // In-memory AsyncStorage mock shipped with the async-storage package.
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -75,6 +75,98 @@ describe('MowRepository', () => {
 
   it('returns an empty list when nothing is saved', async () => {
     expect(await mowRepository.listMows()).toEqual([]);
+  });
+});
+
+describe('MowRepository — hocInches (schema v3, additive)', () => {
+  it('round-trips a mow saved with a height of cut', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow({ hocInches: 2.5 }));
+    expect(saved.hocInches).toBe(2.5);
+
+    const [reloaded] = await mowRepository.listMows();
+    expect(reloaded.hocInches).toBe(2.5);
+  });
+
+  it('reads a pre-v3 record with no hocInches as undefined (no transform needed)', async () => {
+    // An old record written before v3 existed: no hocInches key at all.
+    const legacy = {
+      id: 'legacy-1',
+      propertyId: 'prop-1',
+      startedAt: 1_700_000_000_000,
+      endedAt: 1_700_000_000_000 + 2400 * 1000,
+      durationSeconds: 2400,
+    };
+    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify([legacy]));
+
+    const byId = await mowRepository.getMowById('legacy-1');
+    expect(byId).not.toBeNull();
+    expect(byId?.hocInches).toBeUndefined();
+
+    const [listed] = await mowRepository.listMows();
+    expect(listed.hocInches).toBeUndefined();
+  });
+
+  it('sets hocInches on an old record via update', async () => {
+    const legacy = {
+      id: 'legacy-2',
+      propertyId: 'prop-1',
+      startedAt: 1_700_000_000_000,
+      endedAt: 1_700_000_000_000 + 2400 * 1000,
+      durationSeconds: 2400,
+    };
+    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify([legacy]));
+
+    const updated = await mowRepository.update('legacy-2', { hocInches: 3 });
+    expect(updated.hocInches).toBe(3);
+    expect((await mowRepository.getMowById('legacy-2'))?.hocInches).toBe(3);
+  });
+
+  it('clears hocInches via update with an undefined patch value', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow({ hocInches: 2 }));
+    const updated = await mowRepository.update(saved.id, { hocInches: undefined });
+    expect('hocInches' in updated).toBe(false);
+    expect((await mowRepository.getMowById(saved.id))?.hocInches).toBeUndefined();
+  });
+});
+
+describe('MowRepository — toolTypes (schema v5, additive)', () => {
+  it('round-trips a mow saved with toolTypes', async () => {
+    const saved = await mowRepository.saveMow(
+      makeNewMow({ toolTypes: ['mower', 'trimmer'] }),
+    );
+    expect(saved.toolTypes).toEqual(['mower', 'trimmer']);
+
+    const [reloaded] = await mowRepository.listMows();
+    expect(reloaded.toolTypes).toEqual(['mower', 'trimmer']);
+  });
+
+  it('reads a pre-v5 record with no toolTypes as undefined (no transform)', async () => {
+    // An old record written before v5: no toolTypes key at all.
+    const legacy = {
+      id: 'legacy-tools',
+      propertyId: 'prop-1',
+      startedAt: 1_700_000_000_000,
+      endedAt: 1_700_000_000_000 + 2400 * 1000,
+      durationSeconds: 2400,
+    };
+    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify([legacy]));
+
+    const byId = await mowRepository.getMowById('legacy-tools');
+    expect(byId).not.toBeNull();
+    expect(byId?.toolTypes).toBeUndefined();
+
+    const [listed] = await mowRepository.listMows();
+    expect(listed.toolTypes).toBeUndefined();
+  });
+
+  it('sets and clears toolTypes via update', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow());
+    const set = await mowRepository.update(saved.id, { toolTypes: ['mower'] });
+    expect(set.toolTypes).toEqual(['mower']);
+
+    const cleared = await mowRepository.update(saved.id, { toolTypes: [] });
+    expect('toolTypes' in cleared).toBe(false);
+    expect((await mowRepository.getMowById(saved.id))?.toolTypes).toBeUndefined();
   });
 });
 

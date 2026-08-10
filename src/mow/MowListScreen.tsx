@@ -1,13 +1,17 @@
 import { useFocusEffect } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
+import HocChip from './HocChip';
 import type { Mow } from './models';
-import type { RootStackParamList } from './navigation';
+import type { RootTabScreenProps } from './navigation';
+import ToolBadges from './ToolBadges';
+import { colors, radii, spacing, typography } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'MowList'>;
+// The Log tab's root screen. Navigates to MowDetail, which pushes on the root
+// stack (reachable via the composite navigation prop).
+type Props = RootTabScreenProps<'Log'>;
 
 /** Reverse-chronological list of saved mows: date, duration, notes preview. */
 export default function MowListScreen({ navigation }: Props) {
@@ -53,7 +57,10 @@ export default function MowListScreen({ navigation }: Props) {
           accessibilityRole="button"
         >
           <View style={styles.rowHeader}>
-            <Text style={styles.date}>{formatMowDate(item.startedAt)}</Text>
+            <View style={styles.rowHeaderLeft}>
+              <Text style={styles.date}>{formatMowDate(item.startedAt)}</Text>
+              {item.hocInches != null ? <HocChip value={item.hocInches} /> : null}
+            </View>
             <Text style={styles.duration}>
               {formatDuration(item.durationSeconds)}
             </Text>
@@ -65,6 +72,7 @@ export default function MowListScreen({ navigation }: Props) {
           ) : (
             <Text style={[styles.notes, styles.noNotes]}>No notes</Text>
           )}
+          <ToolBadges types={item.toolTypes ?? []} />
         </Pressable>
       )}
     />
@@ -74,34 +82,35 @@ export default function MowListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   listContent: {
-    padding: 16,
-    gap: 12,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: 24,
+    gap: spacing.sm,
+    padding: spacing.xl,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
   },
   emptyHint: {
-    fontSize: 15,
-    color: '#6b7280',
+    fontSize: typography.bodySmall,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   row: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
   },
   rowPressed: {
     opacity: 0.7,
@@ -111,23 +120,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  rowHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   date: {
-    fontSize: 16,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
   },
   duration: {
-    fontSize: 16,
-    color: '#16a34a',
+    fontSize: typography.body,
+    color: colors.primary,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   notes: {
-    fontSize: 14,
-    color: '#4b5563',
+    fontSize: typography.bodySmall,
+    color: colors.textSecondary,
   },
   noNotes: {
-    color: '#9ca3af',
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
 });

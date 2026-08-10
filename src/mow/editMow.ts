@@ -1,4 +1,7 @@
+import type { EquipmentType } from '../equipment/models';
+import { clampHoc } from './hoc';
 import type { Mow } from './models';
+import { normalizeToolTypes } from './tools';
 
 /**
  * The editable slice of a mow (D-014: timestamps stay the source of truth).
@@ -6,6 +9,10 @@ import type { Mow } from './models';
  *  - `startedAt` alone shifts `endedAt` to preserve the existing duration;
  *  - `durationSeconds` alone recomputes `endedAt` from the existing start;
  *  - `notes` sets the note, or clears it when blank/whitespace-only.
+ *  - `hocInches` sets the height of cut (clamped/snapped), or clears it when
+ *    the patch value is `undefined`.
+ *  - `toolTypes` sets the job types performed (deduped/ordered), or clears them
+ *    when the patch value is empty/undefined.
  * Nothing else about a mow is editable.
  */
 export interface MowEdit {
@@ -15,6 +22,16 @@ export interface MowEdit {
   durationSeconds?: number;
   /** New note; blank/whitespace clears it. Omit the key to leave notes as-is. */
   notes?: string;
+  /**
+   * New height of cut (inches); clamped/snapped to the valid grid. An explicit
+   * `undefined` clears it. Omit the key to leave the HOC as-is.
+   */
+  hocInches?: number;
+  /**
+   * New job types performed; deduped and canonically ordered. An empty array or
+   * `undefined` clears them. Omit the key to leave the tools as-is.
+   */
+  toolTypes?: EquipmentType[];
 }
 
 /**
@@ -38,6 +55,20 @@ export function applyMowEdit(mow: Mow, patch: MowEdit): Mow {
     const trimmed = (patch.notes ?? '').trim();
     if (trimmed) next.notes = trimmed;
     else delete next.notes;
+  }
+
+  if ('hocInches' in patch) {
+    if (typeof patch.hocInches === 'number' && Number.isFinite(patch.hocInches)) {
+      next.hocInches = clampHoc(patch.hocInches);
+    } else {
+      delete next.hocInches;
+    }
+  }
+
+  if ('toolTypes' in patch) {
+    const normalized = normalizeToolTypes(patch.toolTypes);
+    if (normalized) next.toolTypes = normalized;
+    else delete next.toolTypes;
   }
 
   return next;

@@ -6,6 +6,8 @@
  * Property — no orphan mows, ever.
  */
 
+import type { EquipmentType } from '../equipment/models';
+
 /** A `[longitude, latitude]` coordinate pair, GeoJSON axis order. */
 export type Position = [number, number];
 
@@ -41,6 +43,21 @@ export interface Mow {
   durationSeconds: number;
   /** optional free-form note typed on the Save Mow screen */
   notes?: string;
+  /**
+   * Optional height of cut, in inches (e.g. 2.5). Absent means "not set" — the
+   * field is skippable on save and never blocks it. Constrained to the
+   * 0.5"–4.5" range in 0.25" steps by the input; see src/mow/hoc.ts.
+   */
+  hocInches?: number;
+  /**
+   * Job types performed on this mow (mow / trim / edge / blow). Absent/empty
+   * means none. These are plain enum VALUES, not references to Equipment
+   * entities (D-037): job history records what was done and is deliberately
+   * independent of the garage, so deleting equipment never affects it. Reuses
+   * the EquipmentType union purely as the shared job vocabulary. See
+   * src/mow/tools.ts.
+   */
+  toolTypes?: EquipmentType[];
 }
 
 /** A mow before it has been persisted; the repository assigns the id. */

@@ -1,14 +1,21 @@
 import { useFocusEffect } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Button from '../components/Button';
 import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
 import type { Property } from '../mow/models';
-import type { RootStackParamList } from '../mow/navigation';
+import type { RootTabScreenProps } from '../mow/navigation';
 import { hasLawn } from '../lawn/prompts';
-import { deriveStats, MIN_MOWS_FOR_AVERAGES, type Stats } from './deriveStats';
+import { colors, radii, spacing, typography } from '../theme';
+import { formatHoc } from '../mow/hoc';
+import {
+  deriveStats,
+  MIN_MOWS_FOR_AVERAGES,
+  MIN_MOWS_FOR_AVG_HOC,
+  type Stats,
+} from './deriveStats';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Stats'>;
+type Props = RootTabScreenProps<'Stats'>;
 
 function weeks(n: number): string {
   return `${n} ${n === 1 ? 'week' : 'weeks'}`;
@@ -87,18 +94,16 @@ export default function StatsScreen({ navigation }: Props) {
         ) : (
           <>
             <LockedHint text="Draw your lawn to unlock area & efficiency stats" />
-            <Pressable
+            <Button
+              label="Draw your lawn"
+              variant="primary"
               onPress={() =>
                 navigation.navigate('LawnDraw', {
                   propertyId: property.id,
                   mode: 'create',
                 })
               }
-              style={({ pressed }) => [styles.lawnCta, pressed && styles.pressed]}
-              accessibilityRole="button"
-            >
-              <Text style={styles.lawnCtaText}>Draw your lawn</Text>
-            </Pressable>
+            />
           </>
         )}
       </View>
@@ -132,6 +137,17 @@ export default function StatsScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Height of Cut</Text>
+        {stats.averageHocInches === null ? (
+          <LockedHint
+            text={`Log ${MIN_MOWS_FOR_AVG_HOC} mows with a height of cut to unlock average HOC`}
+          />
+        ) : (
+          <StatRow label="Average HOC" value={formatHoc(stats.averageHocInches)} />
+        )}
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Streaks</Text>
         <StatRow label="Current" value={weeks(stats.currentStreakWeeks)} />
         <StatRow label="Longest" value={weeks(stats.longestStreakWeeks)} />
@@ -161,22 +177,23 @@ export default function StatsScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   content: {
-    padding: 16,
-    gap: 20,
+    padding: spacing.lg,
+    gap: spacing.xl,
   },
   section: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 16,
-    gap: 10,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.surface,
   },
   sectionTitle: {
-    fontSize: 13,
-    color: '#6b7280',
+    fontSize: typography.caption,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 2,
@@ -187,39 +204,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rowLabel: {
-    fontSize: 16,
-    color: '#374151',
+    fontSize: typography.body,
+    color: colors.textSecondary,
   },
   rowValue: {
-    fontSize: 16,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
     fontVariant: ['tabular-nums'],
   },
   hint: {
-    fontSize: 14,
-    color: '#9ca3af',
+    fontSize: typography.bodySmall,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   lawnLink: {
-    fontSize: 15,
-    color: '#16a34a',
+    fontSize: typography.bodySmall,
+    color: colors.primary,
     fontWeight: '600',
     marginTop: 2,
-  },
-  lawnCta: {
-    marginTop: 4,
-    paddingVertical: 12,
-    borderRadius: 999,
-    alignItems: 'center',
-    backgroundColor: '#16a34a',
-  },
-  lawnCtaText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  pressed: {
-    opacity: 0.8,
   },
 });

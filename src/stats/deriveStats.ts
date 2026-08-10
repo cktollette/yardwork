@@ -10,6 +10,8 @@
  *  - averages (avgDaysBetweenMows, avgMowsPerWeek30d) require >= 3 mows
  *  - area-based stats (lifetimeAreaSqFt, sqFtPerMinute) require a polygon
  *    (a positive areaSqFt). No polygon => null.
+ *  - averageHocInches requires >= 3 mows that HAVE a height of cut (a subset
+ *    gate, distinct from total mow count). Fewer => null.
  * Lifetime counts and streaks always compute (empty log => 0).
  */
 
@@ -19,6 +21,9 @@ const MS_PER_WEEK = MS_PER_DAY * 7;
 /** Minimum mows before averages unlock. */
 export const MIN_MOWS_FOR_AVERAGES = 3;
 
+/** Minimum mows *with a height of cut* before the average HOC unlocks. */
+export const MIN_MOWS_FOR_AVG_HOC = 3;
+
 /** The only shape deriveStats needs from a mow — Mow satisfies this structurally. */
 export interface StatsMow {
   /** epoch ms when the mow started */
@@ -27,6 +32,8 @@ export interface StatsMow {
   endedAt: number;
   /** whole seconds elapsed */
   durationSeconds: number;
+  /** optional height of cut, in inches; absent means "not set" */
+  hocInches?: number;
 }
 
 export interface DeriveStatsOptions {
@@ -51,6 +58,11 @@ export interface Stats {
   longestStreakWeeks: number;
   /** area covered per minute across all mows; null without a polygon or time */
   sqFtPerMinute: number | null;
+  /**
+   * Mean height of cut (inches, 2-decimal) over mows that have one; null below
+   * MIN_MOWS_FOR_AVG_HOC mows-with-a-HOC.
+   */
+  averageHocInches: number | null;
 }
 
 /**
@@ -135,6 +147,17 @@ export function deriveStats(mows: StatsMow[], opts: DeriveStatsOptions): Stats {
     avgMowsPerWeek30d = (inWindow * 7) / 30;
   }
 
+  // Average HOC is gated on a minimum of mows that actually have a HOC — a
+  // different subset from lifetimeMows, so a log full of HOC-less mows keeps it
+  // locked. Rounded to 2 decimals to kill float noise.
+  const hocs = mows
+    .map((m) => m.hocInches)
+    .filter((h): h is number => typeof h === 'number' && Number.isFinite(h));
+  const averageHocInches =
+    hocs.length >= MIN_MOWS_FOR_AVG_HOC
+      ? Math.round((hocs.reduce((sum, h) => sum + h, 0) / hocs.length) * 100) / 100
+      : null;
+
   const { current, longest } = computeStreaks(
     mows.map((m) => isoWeekIndex(m.startedAt)),
     isoWeekIndex(now),
@@ -149,5 +172,6 @@ export function deriveStats(mows: StatsMow[], opts: DeriveStatsOptions): Stats {
     currentStreakWeeks: current,
     longestStreakWeeks: longest,
     sqFtPerMinute,
+    averageHocInches,
   };
 }

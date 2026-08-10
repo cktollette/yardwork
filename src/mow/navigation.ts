@@ -1,21 +1,58 @@
+import type {
+  CompositeScreenProps,
+  NavigatorScreenParams,
+} from '@react-navigation/native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { DraftMow } from './timer';
 
 /**
- * Route map for the app's native-stack navigator.
- *
- * The completed mow rides to the Save Mow screen as a route param; everything
- * the screen needs to persist is in `draft` plus the note the user types.
+ * The app is a root native-stack whose first screen hosts a bottom-tab
+ * navigator (RootTabParamList). Push flows — the mow timer, the mow log, and
+ * the full-screen lawn editor — live on the root stack ABOVE the tabs, so they
+ * cover the tab bar while active.
  */
+export type RootTabParamList = {
+  Home: undefined;
+  Stats: undefined;
+  /**
+   * The center action button. Never rendered as a screen — its custom
+   * tabBarButton pushes the Timer flow instead of switching tabs — but the
+   * navigator still needs a route entry for it.
+   */
+  MowAction: undefined;
+  /** The mow log. Its stack root is MowListScreen; MowDetail pushes on the root stack. */
+  Log: undefined;
+  Lawn: undefined;
+};
+
 export type RootStackParamList = {
+  Tabs: NavigatorScreenParams<RootTabParamList> | undefined;
   Timer: undefined;
   SaveMow: { draft: DraftMow };
-  MowList: undefined;
   /** Edit or delete a single logged mow, loaded by id. */
   MowDetail: { mowId: string };
-  Stats: undefined;
   /**
    * Draw or edit the lawn polygon for a Property. `create` starts empty;
    * `edit` preloads the property's existing boundary. One polygon per property.
    */
   LawnDraw: { propertyId: string; mode: 'create' | 'edit' };
+  /** The equipment garage: a list of the user's equipment (reached from Lawn). */
+  Garage: undefined;
+  /** Add (no id) or edit (id supplied) a piece of equipment. */
+  EquipmentForm: { equipmentId?: string } | undefined;
 };
+
+/** Props for a screen that lives directly on the root stack. */
+export type RootStackScreenProps<T extends keyof RootStackParamList> =
+  NativeStackScreenProps<RootStackParamList, T>;
+
+/**
+ * Props for a tab screen. Composite so a tab screen can also navigate to the
+ * root stack's push routes (e.g. Stats → LawnDraw) with full type safety.
+ */
+export type RootTabScreenProps<T extends keyof RootTabParamList> =
+  CompositeScreenProps<
+    BottomTabScreenProps<RootTabParamList, T>,
+    NativeStackScreenProps<RootStackParamList>
+  >;
