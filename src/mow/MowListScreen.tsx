@@ -1,11 +1,15 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { equipmentRepository } from '../equipment/asyncStorageRepositories';
+import type { Equipment } from '../equipment/models';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import HocChip from './HocChip';
 import type { Mow } from './models';
 import type { RootTabScreenProps } from './navigation';
+import ToolBadges from './ToolBadges';
+import { mowToolTypes } from './tools';
 import { colors, radii, spacing, typography } from '../theme';
 
 // The Log tab's root screen. Navigates to MowDetail, which pushes on the root
@@ -15,14 +19,21 @@ type Props = RootTabScreenProps<'Log'>;
 /** Reverse-chronological list of saved mows: date, duration, notes preview. */
 export default function MowListScreen({ navigation }: Props) {
   const [mows, setMows] = useState<Mow[] | null>(null);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
 
   // Reload whenever the screen regains focus so a freshly saved mow appears.
+  // Equipment is loaded alongside mows to resolve tool-type indicators; dangling
+  // ids simply don't produce a badge (D-038).
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      mowRepository.listMows().then((loaded) => {
-        if (active) setMows(loaded);
-      });
+      Promise.all([mowRepository.listMows(), equipmentRepository.list()]).then(
+        ([loadedMows, loadedEquipment]) => {
+          if (!active) return;
+          setMows(loadedMows);
+          setEquipment(loadedEquipment);
+        },
+      );
       return () => {
         active = false;
       };
@@ -71,6 +82,7 @@ export default function MowListScreen({ navigation }: Props) {
           ) : (
             <Text style={[styles.notes, styles.noNotes]}>No notes</Text>
           )}
+          <ToolBadges types={mowToolTypes(item.equipmentIds, equipment)} />
         </Pressable>
       )}
     />
