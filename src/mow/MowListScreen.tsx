@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
+import HocChip from './HocChip';
 import type { Mow } from './models';
 import type { RootTabScreenProps } from './navigation';
 import { colors, radii, spacing, typography } from '../theme';
@@ -55,7 +56,10 @@ export default function MowListScreen({ navigation }: Props) {
           accessibilityRole="button"
         >
           <View style={styles.rowHeader}>
-            <Text style={styles.date}>{formatMowDate(item.startedAt)}</Text>
+            <View style={styles.rowHeaderLeft}>
+              <Text style={styles.date}>{formatMowDate(item.startedAt)}</Text>
+              {item.hocInches != null ? <HocChip value={item.hocInches} /> : null}
+            </View>
             <Text style={styles.duration}>
               {formatDuration(item.durationSeconds)}
             </Text>
@@ -113,6 +117,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  rowHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   date: {
     fontSize: typography.body,
