@@ -129,6 +129,37 @@ describe('MowRepository — hocInches (schema v3, additive)', () => {
   });
 });
 
+describe('MowRepository — equipmentIds (schema v5, additive)', () => {
+  it('round-trips a mow saved with equipmentIds', async () => {
+    const saved = await mowRepository.saveMow(
+      makeNewMow({ equipmentIds: ['eq-1', 'eq-2'] }),
+    );
+    expect(saved.equipmentIds).toEqual(['eq-1', 'eq-2']);
+
+    const [reloaded] = await mowRepository.listMows();
+    expect(reloaded.equipmentIds).toEqual(['eq-1', 'eq-2']);
+  });
+
+  it('reads a pre-v5 record with no equipmentIds as undefined (no transform)', async () => {
+    // An old record written before v5: no equipmentIds key at all.
+    const legacy = {
+      id: 'legacy-eq',
+      propertyId: 'prop-1',
+      startedAt: 1_700_000_000_000,
+      endedAt: 1_700_000_000_000 + 2400 * 1000,
+      durationSeconds: 2400,
+    };
+    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify([legacy]));
+
+    const byId = await mowRepository.getMowById('legacy-eq');
+    expect(byId).not.toBeNull();
+    expect(byId?.equipmentIds).toBeUndefined();
+
+    const [listed] = await mowRepository.listMows();
+    expect(listed.equipmentIds).toBeUndefined();
+  });
+});
+
 describe('MowRepository.update', () => {
   it('applies a patch and persists it', async () => {
     const saved = await mowRepository.saveMow(makeNewMow({ notes: 'before' }));

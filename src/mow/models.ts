@@ -47,6 +47,13 @@ export interface Mow {
    * 0.5"–4.5" range in 0.25" steps by the input; see src/mow/hoc.ts.
    */
   hocInches?: number;
+  /**
+   * Equipment used on this mow, referenced by Equipment.id. Absent/empty means
+   * none. A LOOSE reference by design (D-037): equipment is hard-deleted
+   * (D-027), so an id here MAY no longer resolve. Reads must tolerate dangling
+   * ids — never crash, and never rewrite this array on read. See src/mow/tools.ts.
+   */
+  equipmentIds?: string[];
 }
 
 /** A mow before it has been persisted; the repository assigns the id. */
