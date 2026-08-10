@@ -2,6 +2,7 @@ import { Alert } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import MowDetailScreen from './MowDetailScreen';
 import type { Mow } from './models';
+import type { Weather } from '../weather/WeatherService';
 
 jest.mock('./asyncStorageRepositories', () => ({
   mowRepository: { getMowById: jest.fn(), update: jest.fn(), delete: jest.fn() },
@@ -69,6 +70,55 @@ describe('MowDetailScreen — tool picker wiring', () => {
     // Nothing changed → no write, just navigate back.
     expect(mowRepository.update).not.toHaveBeenCalled();
     expect(navigation.goBack).toHaveBeenCalled();
+  });
+});
+
+const WEATHER: Weather = {
+  tempF: 94,
+  condition: 'Clear',
+  humidity: 40,
+  capturedAt: '2026-08-10T15:00:00.000Z',
+};
+
+function weatherLine(tree: ReactTestRenderer): string | null {
+  const nodes = tree.root.findAllByProps({ testID: 'mow-weather' });
+  return nodes.length === 0 ? null : (nodes[0].props.children as string);
+}
+
+describe('MowDetailScreen — weather display', () => {
+  it('renders the weather line when the mow has weather', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ weather: WEATHER }));
+
+    const tree = await renderDetail();
+    expect(weatherLine(tree)).toBe('94°F · Clear');
+  });
+
+  it('renders nothing when the mow has no weather', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow());
+
+    const tree = await renderDetail();
+    expect(weatherLine(tree)).toBeNull();
+  });
+
+  it('still shows weather after an edit, and the edit patch never carries weather', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ weather: WEATHER }));
+
+    const tree = await renderDetail();
+    expect(weatherLine(tree)).toBe('94°F · Clear');
+
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'Mow notes' }).props.onChangeText('nice');
+    });
+    await act(async () => {
+      tree.root.findByProps({ label: 'Save changes' }).props.onPress();
+    });
+
+    // The edit sends only notes — weather is never part of an edit patch.
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { notes: 'nice' });
+    const patch = mowRepository.update.mock.calls[0][1];
+    expect(patch).not.toHaveProperty('weather');
+    // The line was still on screen right up to the save.
+    expect(weatherLine(tree)).toBe('94°F · Clear');
   });
 });
 

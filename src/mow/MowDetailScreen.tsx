@@ -212,6 +212,16 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         />
       </View>
 
+      {mow.weather && (
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Weather</Text>
+          {/* Capture-only provenance (D-040) — read-only, never editable. */}
+          <Text style={styles.weatherValue} testID="mow-weather">
+            {`${mow.weather.tempF}°F · ${mow.weather.condition}`}
+          </Text>
+        </View>
+      )}
+
       <HocField value={hocInches} onChange={setHocInches} disabled={busy} />
 
       <View style={styles.field}>
@@ -285,6 +295,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
     backgroundColor: colors.surface,
   },
+  weatherValue: { fontSize: typography.body, color: colors.ink },
   notesInput: { minHeight: 96 },
   button: {
     paddingVertical: spacing.lg,
