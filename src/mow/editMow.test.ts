@@ -83,6 +83,25 @@ describe('applyMowEdit', () => {
     expect(applyMowEdit(mow, { durationSeconds: 100 }).hocInches).toBe(2.25);
   });
 
+  it('sets equipmentIds from a patch, deduping', () => {
+    const mow = makeMow();
+    expect(applyMowEdit(mow, { equipmentIds: ['a', 'a', 'b'] }).equipmentIds).toEqual([
+      'a',
+      'b',
+    ]);
+  });
+
+  it('clears equipmentIds when the patch value is empty or undefined', () => {
+    const mow = makeMow({ equipmentIds: ['a', 'b'] });
+    expect('equipmentIds' in applyMowEdit(mow, { equipmentIds: [] })).toBe(false);
+    expect('equipmentIds' in applyMowEdit(mow, { equipmentIds: undefined })).toBe(false);
+  });
+
+  it('leaves equipmentIds untouched when the patch omits them', () => {
+    const mow = makeMow({ equipmentIds: ['keep-1'] });
+    expect(applyMowEdit(mow, { notes: 'x' }).equipmentIds).toEqual(['keep-1']);
+  });
+
   it('rejects an edit that makes endedAt <= startedAt', () => {
     const mow = makeMow();
     expect(() => applyMowEdit(mow, { durationSeconds: 0 })).toThrow();

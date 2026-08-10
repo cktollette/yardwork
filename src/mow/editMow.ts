@@ -1,5 +1,6 @@
 import { clampHoc } from './hoc';
 import type { Mow } from './models';
+import { normalizeEquipmentIds } from './tools';
 
 /**
  * The editable slice of a mow (D-014: timestamps stay the source of truth).
@@ -9,6 +10,8 @@ import type { Mow } from './models';
  *  - `notes` sets the note, or clears it when blank/whitespace-only.
  *  - `hocInches` sets the height of cut (clamped/snapped), or clears it when
  *    the patch value is `undefined`.
+ *  - `equipmentIds` sets the tools used (deduped), or clears them when the
+ *    patch value is empty/undefined.
  * Nothing else about a mow is editable.
  */
 export interface MowEdit {
@@ -23,6 +26,11 @@ export interface MowEdit {
    * `undefined` clears it. Omit the key to leave the HOC as-is.
    */
   hocInches?: number;
+  /**
+   * New tools used (Equipment ids); deduped. An empty array or `undefined`
+   * clears them. Omit the key to leave the tools as-is.
+   */
+  equipmentIds?: string[];
 }
 
 /**
@@ -54,6 +62,12 @@ export function applyMowEdit(mow: Mow, patch: MowEdit): Mow {
     } else {
       delete next.hocInches;
     }
+  }
+
+  if ('equipmentIds' in patch) {
+    const normalized = normalizeEquipmentIds(patch.equipmentIds);
+    if (normalized) next.equipmentIds = normalized;
+    else delete next.equipmentIds;
   }
 
   return next;

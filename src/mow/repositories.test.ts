@@ -158,6 +158,16 @@ describe('MowRepository — equipmentIds (schema v5, additive)', () => {
     const [listed] = await mowRepository.listMows();
     expect(listed.equipmentIds).toBeUndefined();
   });
+
+  it('sets and clears equipmentIds via update', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow());
+    const set = await mowRepository.update(saved.id, { equipmentIds: ['eq-1'] });
+    expect(set.equipmentIds).toEqual(['eq-1']);
+
+    const cleared = await mowRepository.update(saved.id, { equipmentIds: [] });
+    expect('equipmentIds' in cleared).toBe(false);
+    expect((await mowRepository.getMowById(saved.id))?.equipmentIds).toBeUndefined();
+  });
 });
 
 describe('MowRepository.update', () => {
