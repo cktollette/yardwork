@@ -9,7 +9,7 @@ import {
   type MowRepository,
   type PropertyRepository,
 } from './repositories';
-import { ensureSchemaVersion } from './schema';
+import { ensureSchemaVersion } from '../storage/schema';
 
 export const MOWS_KEY = '@yardwork/mows';
 export const PROPERTIES_KEY = '@yardwork/properties';

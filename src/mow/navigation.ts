@@ -37,6 +37,10 @@ export type RootStackParamList = {
    * `edit` preloads the property's existing boundary. One polygon per property.
    */
   LawnDraw: { propertyId: string; mode: 'create' | 'edit' };
+  /** The equipment garage: a list of the user's equipment (reached from Lawn). */
+  Garage: undefined;
+  /** Add (no id) or edit (id supplied) a piece of equipment. */
+  EquipmentForm: { equipmentId?: string } | undefined;
 };
 
 /** Props for a screen that lives directly on the root stack. */

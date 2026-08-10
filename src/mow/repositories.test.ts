@@ -6,7 +6,7 @@ import {
   propertyRepository,
 } from './asyncStorageRepositories';
 import type { NewMow, Position } from './models';
-import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './schema';
+import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from '../storage/schema';
 
 // In-memory AsyncStorage mock shipped with the async-storage package.
 jest.mock('@react-native-async-storage/async-storage', () =>
