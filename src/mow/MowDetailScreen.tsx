@@ -12,6 +12,7 @@ import Button from '../components/Button';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDateField, formatTimeField, parseDateTimeField } from './datetimeField';
 import { formatMowDate } from './format';
+import HocField from './HocField';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
 import type { RootStackScreenProps } from './navigation';
@@ -34,6 +35,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   const [timeField, setTimeField] = useState('');
   const [minutesField, setMinutesField] = useState('');
   const [notes, setNotes] = useState('');
+  const [hocInches, setHocInches] = useState<number | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         setTimeField(formatTimeField(loaded.startedAt));
         setMinutesField(String(Math.round(loaded.durationSeconds / 60)));
         setNotes(loaded.notes ?? '');
+        setHocInches(loaded.hocInches);
       }
     });
     return () => {
@@ -87,6 +90,11 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       patch.notes = notes;
     }
 
+    // Only include HOC when it actually changed; an explicit undefined clears it.
+    if (hocInches !== mow.hocInches) {
+      patch.hocInches = hocInches;
+    }
+
     if (Object.keys(patch).length === 0) {
       navigation.goBack(); // nothing changed
       return;
@@ -100,7 +108,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       setBusy(false);
       Alert.alert("Couldn't save changes", 'Please check the values and try again.');
     }
-  }, [mow, busy, dateField, timeField, minutesField, notes, navigation]);
+  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, navigation]);
 
   const handleDelete = useCallback(() => {
     if (!mow || busy) return;
@@ -178,6 +186,8 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           accessibilityLabel="Mow duration in minutes"
         />
       </View>
+
+      <HocField value={hocInches} onChange={setHocInches} disabled={busy} />
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>

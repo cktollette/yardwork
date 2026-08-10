@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -10,6 +10,8 @@ import {
 import Button from '../components/Button';
 import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
+import HocField from './HocField';
+import { mostRecentHoc } from './hoc';
 import type { RootStackScreenProps } from './navigation';
 import {
   dismissThirdMowPrompt,
@@ -29,7 +31,20 @@ type Props = RootStackScreenProps<'SaveMow'>;
 export default function SaveMowScreen({ navigation, route }: Props) {
   const { draft } = route.params;
   const [notes, setNotes] = useState('');
+  const [hocInches, setHocInches] = useState<number | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+
+  // Default the HOC to the most recently set one (D-025). If no prior mow has a
+  // HOC, it stays unset and HocField shows its "Set HOC" affordance.
+  useEffect(() => {
+    let active = true;
+    mowRepository.listMows().then((mows) => {
+      if (active) setHocInches(mostRecentHoc(mows));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (saving) return;
@@ -44,6 +59,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         endedAt: draft.endedAt,
         durationSeconds: draft.durationSeconds,
         ...(trimmed ? { notes: trimmed } : {}),
+        ...(hocInches != null ? { hocInches } : {}),
       });
 
       // Once they've logged a few mows but still have no lawn, nudge them once
@@ -89,7 +105,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');
     }
-  }, [saving, notes, draft, navigation]);
+  }, [saving, notes, hocInches, draft, navigation]);
 
   const handleDiscard = useCallback(() => {
     navigation.goBack();
@@ -108,6 +124,8 @@ export default function SaveMowScreen({ navigation, route }: Props) {
           {formatDuration(draft.durationSeconds)}
         </Text>
       </View>
+
+      <HocField value={hocInches} onChange={setHocInches} disabled={saving} />
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>
