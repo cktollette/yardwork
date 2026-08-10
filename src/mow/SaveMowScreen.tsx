@@ -8,10 +8,13 @@ import {
   View,
 } from 'react-native';
 import Button from '../components/Button';
+import type { EquipmentType } from '../equipment/models';
 import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import HocField from './HocField';
 import { mostRecentHoc } from './hoc';
+import ToolTypePicker from './ToolTypePicker';
+import { mostRecentToolTypes, normalizeToolTypes } from './tools';
 import type { RootStackScreenProps } from './navigation';
 import {
   dismissThirdMowPrompt,
@@ -32,18 +35,26 @@ export default function SaveMowScreen({ navigation, route }: Props) {
   const { draft } = route.params;
   const [notes, setNotes] = useState('');
   const [hocInches, setHocInches] = useState<number | undefined>(undefined);
+  const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Default the HOC to the most recently set one (D-025). If no prior mow has a
-  // HOC, it stays unset and HocField shows its "Set HOC" affordance.
+  // Default HOC and job types from the most recent mow (progressive disclosure).
   useEffect(() => {
     let active = true;
     mowRepository.listMows().then((mows) => {
-      if (active) setHocInches(mostRecentHoc(mows));
+      if (!active) return;
+      setHocInches(mostRecentHoc(mows));
+      setToolTypes(mostRecentToolTypes(mows) ?? []);
     });
     return () => {
       active = false;
     };
+  }, []);
+
+  const toggleTool = useCallback((type: EquipmentType) => {
+    setToolTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    );
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -53,6 +64,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       // Every mow needs a Property (D-005); create the default on first save.
       const property = await propertyRepository.getOrCreateDefault();
       const trimmed = notes.trim();
+      const normalizedTools = normalizeToolTypes(toolTypes);
       await mowRepository.saveMow({
         propertyId: property.id,
         startedAt: draft.startedAt,
@@ -60,6 +72,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         durationSeconds: draft.durationSeconds,
         ...(trimmed ? { notes: trimmed } : {}),
         ...(hocInches != null ? { hocInches } : {}),
+        ...(normalizedTools ? { toolTypes: normalizedTools } : {}),
       });
 
       // Once they've logged a few mows but still have no lawn, nudge them once
@@ -105,7 +118,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');
     }
-  }, [saving, notes, hocInches, draft, navigation]);
+  }, [saving, notes, hocInches, toolTypes, draft, navigation]);
 
   const handleDiscard = useCallback(() => {
     navigation.goBack();
@@ -126,6 +139,16 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       </View>
 
       <HocField value={hocInches} onChange={setHocInches} disabled={saving} />
+
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Tools (optional)</Text>
+        <ToolTypePicker
+          selected={toolTypes}
+          onToggle={toggleTool}
+          disabled={saving}
+          accessibilityLabel="Jobs done"
+        />
+      </View>
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>

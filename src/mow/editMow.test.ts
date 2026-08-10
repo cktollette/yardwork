@@ -83,6 +83,25 @@ describe('applyMowEdit', () => {
     expect(applyMowEdit(mow, { durationSeconds: 100 }).hocInches).toBe(2.25);
   });
 
+  it('sets toolTypes from a patch, deduping and forcing canonical order', () => {
+    const mow = makeMow();
+    expect(applyMowEdit(mow, { toolTypes: ['blower', 'mower', 'mower'] }).toolTypes).toEqual([
+      'mower',
+      'blower',
+    ]);
+  });
+
+  it('clears toolTypes when the patch value is empty or undefined', () => {
+    const mow = makeMow({ toolTypes: ['mower', 'trimmer'] });
+    expect('toolTypes' in applyMowEdit(mow, { toolTypes: [] })).toBe(false);
+    expect('toolTypes' in applyMowEdit(mow, { toolTypes: undefined })).toBe(false);
+  });
+
+  it('leaves toolTypes untouched when the patch omits them', () => {
+    const mow = makeMow({ toolTypes: ['edger'] });
+    expect(applyMowEdit(mow, { notes: 'x' }).toolTypes).toEqual(['edger']);
+  });
+
   it('rejects an edit that makes endedAt <= startedAt', () => {
     const mow = makeMow();
     expect(() => applyMowEdit(mow, { durationSeconds: 0 })).toThrow();

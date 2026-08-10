@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -9,14 +9,21 @@ import {
   View,
 } from 'react-native';
 import Button from '../components/Button';
+import type { EquipmentType } from '../equipment/models';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDateField, formatTimeField, parseDateTimeField } from './datetimeField';
 import { formatMowDate } from './format';
 import HocField from './HocField';
+import ToolTypePicker from './ToolTypePicker';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
 import type { RootStackScreenProps } from './navigation';
 import { colors, radii, spacing, typography } from '../theme';
+
+/** Order-insensitive equality for two type lists. */
+function sameTypes(a: EquipmentType[], b: EquipmentType[]): boolean {
+  return a.length === b.length && a.every((t) => b.includes(t));
+}
 
 type Props = RootStackScreenProps<'MowDetail'>;
 
@@ -36,7 +43,11 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   const [minutesField, setMinutesField] = useState('');
   const [notes, setNotes] = useState('');
   const [hocInches, setHocInches] = useState<number | undefined>(undefined);
+  const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
   const [busy, setBusy] = useState(false);
+  // The mow's job types as loaded, for diffing on save so an untouched selection
+  // produces no patch.
+  const initialToolsRef = useRef<EquipmentType[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -51,12 +62,21 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         setMinutesField(String(Math.round(loaded.durationSeconds / 60)));
         setNotes(loaded.notes ?? '');
         setHocInches(loaded.hocInches);
+        const loadedTools = loaded.toolTypes ?? [];
+        setToolTypes(loadedTools);
+        initialToolsRef.current = loadedTools;
       }
     });
     return () => {
       active = false;
     };
   }, [mowId, navigation]);
+
+  const toggleTool = useCallback((type: EquipmentType) => {
+    setToolTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    );
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!mow || busy) return;
@@ -95,6 +115,11 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       patch.hocInches = hocInches;
     }
 
+    // Only include tools when the selection actually changed.
+    if (!sameTypes(toolTypes, initialToolsRef.current)) {
+      patch.toolTypes = toolTypes;
+    }
+
     if (Object.keys(patch).length === 0) {
       navigation.goBack(); // nothing changed
       return;
@@ -108,7 +133,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       setBusy(false);
       Alert.alert("Couldn't save changes", 'Please check the values and try again.');
     }
-  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, navigation]);
+  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, toolTypes, navigation]);
 
   const handleDelete = useCallback(() => {
     if (!mow || busy) return;
@@ -188,6 +213,16 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       </View>
 
       <HocField value={hocInches} onChange={setHocInches} disabled={busy} />
+
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Tools (optional)</Text>
+        <ToolTypePicker
+          selected={toolTypes}
+          onToggle={toggleTool}
+          disabled={busy}
+          accessibilityLabel="Jobs done"
+        />
+      </View>
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Notes (optional)</Text>

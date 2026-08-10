@@ -6,6 +6,7 @@ import { formatDuration, formatMowDate } from './format';
 import HocChip from './HocChip';
 import type { Mow } from './models';
 import type { RootTabScreenProps } from './navigation';
+import ToolBadges from './ToolBadges';
 import { colors, radii, spacing, typography } from '../theme';
 
 // The Log tab's root screen. Navigates to MowDetail, which pushes on the root
@@ -71,6 +72,7 @@ export default function MowListScreen({ navigation }: Props) {
           ) : (
             <Text style={[styles.notes, styles.noNotes]}>No notes</Text>
           )}
+          <ToolBadges types={item.toolTypes ?? []} />
         </Pressable>
       )}
     />
