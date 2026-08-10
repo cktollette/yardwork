@@ -1,11 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * On-device persistence schema version.
+ * App-level persistence schema registry.
  *
- * Bump this whenever the shape of persisted data changes. The stamp lets a
- * future branch (Supabase sync, or any model migration) know what shape the
- * local data is in before it reads it — cheap to add now, painful to retrofit.
+ * The single source of truth for the on-device data shape across ALL domains
+ * (mows, properties, equipment, …) — not mow-specific, which is why it lives
+ * under src/storage rather than any one feature folder. Every repository stamps
+ * and checks this version through ensureSchemaVersion().
+ *
+ * Bump SCHEMA_VERSION whenever the shape of ANY persisted collection changes,
+ * and add a `// vN:` line below noting what changed. The stamp lets a future
+ * branch (Supabase sync, or any model migration) know what shape the local data
+ * is in before it reads it — cheap to add now, painful to retrofit.
  */
 // v1: mows + properties.
 // v2: Property gained `boundary` + `areaSqFt` (lawn polygon). Purely additive —
