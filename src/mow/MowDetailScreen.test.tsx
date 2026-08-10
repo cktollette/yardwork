@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import MowDetailScreen from './MowDetailScreen';
 import type { Mow } from './models';
@@ -68,5 +69,29 @@ describe('MowDetailScreen — tool picker wiring', () => {
     // Nothing changed → no write, just navigate back.
     expect(mowRepository.update).not.toHaveBeenCalled();
     expect(navigation.goBack).toHaveBeenCalled();
+  });
+});
+
+describe('MowDetailScreen — short-mow guard does not apply to edits', () => {
+  it('saves a 30-second edit with no confirmation dialog', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const startedAt = Date.parse('2026-07-20T10:00:00Z');
+    mowRepository.getMowById.mockResolvedValue(
+      mow({ startedAt, endedAt: startedAt + 30 * 1000, durationSeconds: 30 }),
+    );
+
+    const tree = await renderDetail();
+    // Touch the notes so the save produces a real patch.
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'Mow notes' }).props.onChangeText('great');
+    });
+    await act(async () => {
+      tree.root.findByProps({ label: 'Save changes' }).props.onPress();
+    });
+
+    // The sub-floor duration must not trigger the timer-flow confirmation.
+    expect(alert).not.toHaveBeenCalled();
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { notes: 'great' });
+    alert.mockRestore();
   });
 });
