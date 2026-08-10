@@ -10,6 +10,7 @@ import {
   type PropertyRepository,
 } from './repositories';
 import { ensureSchemaVersion } from '../storage/schema';
+import type { Weather } from '../weather/WeatherService';
 
 export const MOWS_KEY = '@yardwork/mows';
 export const PROPERTIES_KEY = '@yardwork/properties';
@@ -98,6 +99,15 @@ class AsyncStorageMowRepository implements MowRepository {
       // applyMowEdit validates before we write, so a rejected edit (e.g. a
       // non-positive duration) leaves stored data untouched.
       const updated = applyMowEdit(mows[index], patch);
+      // Weather is capture-only provenance (D-040): an edit can never clear or
+      // change it, regardless of what the caller passes. Carry the stored value
+      // through verbatim.
+      const existingWeather = mows[index].weather;
+      if (existingWeather !== undefined) {
+        updated.weather = existingWeather;
+      } else {
+        delete updated.weather;
+      }
       mows[index] = updated;
       await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
       return updated;
@@ -113,6 +123,20 @@ class AsyncStorageMowRepository implements MowRepository {
       if (remaining.length !== mows.length) {
         await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(remaining));
       }
+    });
+  }
+
+  async attachWeather(id: string, weather: Weather): Promise<void> {
+    return this.enqueue(async () => {
+      await ensureSchemaVersion();
+      const mows = await readArray<Mow>(MOWS_KEY);
+      const index = mows.findIndex((m) => m.id === id);
+      // Silent no-op on a gone record (D-027 idempotent pattern) — the mow may
+      // have been deleted between save and this best-effort capture.
+      if (index === -1) return;
+      // Set only the weather field; leave every other field as stored.
+      mows[index] = { ...mows[index], weather };
+      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
     });
   }
 }

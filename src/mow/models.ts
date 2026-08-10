@@ -7,6 +7,7 @@
  */
 
 import type { EquipmentType } from '../equipment/models';
+import type { Weather } from '../weather/WeatherService';
 
 /** A `[longitude, latitude]` coordinate pair, GeoJSON axis order. */
 export type Position = [number, number];
@@ -58,7 +59,18 @@ export interface Mow {
    * src/mow/tools.ts.
    */
   toolTypes?: EquipmentType[];
+  /**
+   * Weather captured once at save time (capture-only provenance, D-040). Written
+   * exactly once by the best-effort capture path (see captureWeatherForMow) and
+   * NEVER edited, backfilled, or cleared afterwards. Absent means capture didn't
+   * run or found no reading — the save never waits on or fails for weather.
+   */
+  weather?: Weather;
 }
 
-/** A mow before it has been persisted; the repository assigns the id. */
-export type NewMow = Omit<Mow, 'id'>;
+/**
+ * A mow before it has been persisted; the repository assigns the id. `weather`
+ * is omitted too — it is provenance attached only by the capture path, never set
+ * at save time.
+ */
+export type NewMow = Omit<Mow, 'id' | 'weather'>;

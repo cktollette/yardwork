@@ -27,7 +27,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //     plain enum values — NOT equipment references). Purely additive — absent
 //     reads as "no tools", so no data transform runs. (Earlier unreleased builds
 //     of this branch briefly used `equipmentIds`; that field is simply ignored.)
-export const SCHEMA_VERSION = 5;
+// v6: Mow gained optional `weather` (temp/condition/humidity/capturedAt),
+//     captured best-effort once at save time. Purely additive — absent reads as
+//     "no weather captured", so no data transform runs; older records without
+//     the field load cleanly.
+export const SCHEMA_VERSION = 6;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**
