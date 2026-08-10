@@ -41,6 +41,16 @@ export const equipmentTypeLabel = (t: EquipmentType): string =>
   labelOf(EQUIPMENT_TYPES, t);
 export const powerSourceLabel = (p: PowerSource): string =>
   labelOf(POWER_SOURCES, p);
+
+/** Compact type labels for the at-a-glance tool indicators on a mow card. */
+const EQUIPMENT_TYPE_SHORT: Record<EquipmentType, string> = {
+  mower: 'Mow',
+  trimmer: 'Trim',
+  edger: 'Edge',
+  blower: 'Blow',
+};
+export const equipmentTypeShortLabel = (t: EquipmentType): string =>
+  EQUIPMENT_TYPE_SHORT[t] ?? t;
 export const driveTypeLabel = (d: DriveType): string => labelOf(DRIVE_TYPES, d);
 
 /**
