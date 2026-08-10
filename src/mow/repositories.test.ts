@@ -78,6 +78,35 @@ describe('MowRepository', () => {
   });
 });
 
+describe('MowRepository — hocInches (schema v3, additive)', () => {
+  it('round-trips a mow saved with a height of cut', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow({ hocInches: 2.5 }));
+    expect(saved.hocInches).toBe(2.5);
+
+    const [reloaded] = await mowRepository.listMows();
+    expect(reloaded.hocInches).toBe(2.5);
+  });
+
+  it('reads a pre-v3 record with no hocInches as undefined (no transform needed)', async () => {
+    // An old record written before v3 existed: no hocInches key at all.
+    const legacy = {
+      id: 'legacy-1',
+      propertyId: 'prop-1',
+      startedAt: 1_700_000_000_000,
+      endedAt: 1_700_000_000_000 + 2400 * 1000,
+      durationSeconds: 2400,
+    };
+    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify([legacy]));
+
+    const byId = await mowRepository.getMowById('legacy-1');
+    expect(byId).not.toBeNull();
+    expect(byId?.hocInches).toBeUndefined();
+
+    const [listed] = await mowRepository.listMows();
+    expect(listed.hocInches).toBeUndefined();
+  });
+});
+
 describe('MowRepository.update', () => {
   it('applies a patch and persists it', async () => {
     const saved = await mowRepository.saveMow(makeNewMow({ notes: 'before' }));
