@@ -1,116 +1,46 @@
 /**
- * Pure logic for "tools used per mow": resolving a mow's equipmentIds against
- * the garage, deriving the tool types for the log card, and seeding a new mow's
- * selection from history. No UI, no persistence.
- *
- * Referential integrity (D-038): equipment is hard-deleted (D-027), so a mow's
- * equipmentIds may reference equipment that no longer exists. These helpers
- * TOLERATE dangling ids — resolution silently omits them and reports how many
- * were missing (so a caller like Mow Detail can note it) — and NEVER mutate the
- * input ids. Stored ids self-heal only through an explicit edit.
+ * Pure logic for the job types performed on a mow (mow / trim / edge / blow).
+ * No UI, no persistence, and — by design (D-037) — no dependency on the garage:
+ * a mow stores plain EquipmentType enum values, so job history is immune to
+ * equipment deletion. We reuse EquipmentType only as the shared job vocabulary.
  */
 
 import { EQUIPMENT_TYPES } from '../equipment/catalog';
-import type { Equipment, EquipmentType } from '../equipment/models';
+import type { EquipmentType } from '../equipment/models';
 
-export interface ResolvedTools {
-  /** The resolved equipment, in equipmentIds order; dangling ids omitted. */
-  equipment: Equipment[];
-  /** How many ids did not resolve to a piece of equipment. */
-  missingCount: number;
-}
-
-function indexById(equipment: Equipment[]): Map<string, Equipment> {
-  return new Map(equipment.map((e) => [e.id, e]));
-}
+/** Canonical job-type order (mower, trimmer, edger, blower). */
+const TYPE_ORDER: EquipmentType[] = EQUIPMENT_TYPES.map((t) => t.value);
 
 /**
- * Resolve a mow's equipmentIds against the garage. Order-preserving; dangling
- * ids (equipment removed since the mow was logged) are omitted from `equipment`
- * and counted in `missingCount`.
+ * Normalize job types for storage: dedupe, force canonical order, drop any value
+ * that isn't a known type, and treat an empty result as "none" (undefined) so a
+ * mow never stores an empty array.
  */
-export function resolveMowTools(
-  equipmentIds: string[] | undefined,
-  equipment: Equipment[],
-): ResolvedTools {
-  if (!equipmentIds || equipmentIds.length === 0) {
-    return { equipment: [], missingCount: 0 };
-  }
-  const byId = indexById(equipment);
-  const resolved: Equipment[] = [];
-  let missingCount = 0;
-  for (const id of equipmentIds) {
-    const found = byId.get(id);
-    if (found) resolved.push(found);
-    else missingCount++;
-  }
-  return { equipment: resolved, missingCount };
+export function normalizeToolTypes(
+  types: EquipmentType[] | undefined,
+): EquipmentType[] | undefined {
+  if (!types) return undefined;
+  const set = new Set(types);
+  const ordered = TYPE_ORDER.filter((t) => set.has(t));
+  return ordered.length > 0 ? ordered : undefined;
 }
 
-/**
- * The distinct tool types a mow used, in canonical EQUIPMENT_TYPES order, for
- * the compact card indicators. Dangling ids contribute no type (silently
- * omitted) since a removed tool carries no type to show.
- */
-export function mowToolTypes(
-  equipmentIds: string[] | undefined,
-  equipment: Equipment[],
-): EquipmentType[] {
-  const { equipment: resolved } = resolveMowTools(equipmentIds, equipment);
-  const present = new Set(resolved.map((e) => e.type));
-  return EQUIPMENT_TYPES.map((t) => t.value).filter((t) => present.has(t));
-}
-
-/** The minimal shape the history helpers need from a mow. */
+/** The minimal shape the history helper needs from a mow. */
 export interface ToolsMow {
-  equipmentIds?: string[];
+  toolTypes?: EquipmentType[];
 }
 
 /**
- * The equipmentIds of the most recently logged mow that used any tools. Given a
+ * The job types of the most recently logged mow that recorded any. Given a
  * newest-first list of mows (as the repository returns), returns the first
- * non-empty equipmentIds, or undefined when no mow used tools.
+ * non-empty `toolTypes`, or undefined when no mow recorded tools — used to seed
+ * a new mow's selection (progressive disclosure, like HOC).
  */
-export function mostRecentEquipmentIds(mows: ToolsMow[]): string[] | undefined {
+export function mostRecentToolTypes(mows: ToolsMow[]): EquipmentType[] | undefined {
   for (const mow of mows) {
-    if (mow.equipmentIds && mow.equipmentIds.length > 0) {
-      return mow.equipmentIds;
+    if (mow.toolTypes && mow.toolTypes.length > 0) {
+      return mow.toolTypes;
     }
   }
   return undefined;
-}
-
-/**
- * The tool selection to seed a new mow with: the most recent mow's tools,
- * filtered to equipment that STILL exists in the garage (you can't pre-select a
- * chip that isn't shown, and a since-deleted tool shouldn't come back). Returns
- * ids in the garage's order for stable display.
- */
-export function seedToolSelection(
-  mows: ToolsMow[],
-  currentEquipment: Equipment[],
-): string[] {
-  const recent = mostRecentEquipmentIds(mows);
-  if (!recent) return [];
-  const recentSet = new Set(recent);
-  return currentEquipment.filter((e) => recentSet.has(e.id)).map((e) => e.id);
-}
-
-/**
- * Normalize a list of equipmentIds for storage: dedupe, drop blanks, and treat
- * an empty result as "no tools" (undefined) so a mow never stores an empty
- * array. Preserves first-seen order.
- */
-export function normalizeEquipmentIds(ids: string[] | undefined): string[] | undefined {
-  if (!ids) return undefined;
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const id of ids) {
-    const trimmed = id.trim();
-    if (trimmed && !seen.has(trimmed)) {
-      seen.add(trimmed);
-      out.push(trimmed);
-    }
-  }
-  return out.length > 0 ? out : undefined;
 }

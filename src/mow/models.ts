@@ -6,6 +6,8 @@
  * Property — no orphan mows, ever.
  */
 
+import type { EquipmentType } from '../equipment/models';
+
 /** A `[longitude, latitude]` coordinate pair, GeoJSON axis order. */
 export type Position = [number, number];
 
@@ -48,12 +50,14 @@ export interface Mow {
    */
   hocInches?: number;
   /**
-   * Equipment used on this mow, referenced by Equipment.id. Absent/empty means
-   * none. A LOOSE reference by design (D-037): equipment is hard-deleted
-   * (D-027), so an id here MAY no longer resolve. Reads must tolerate dangling
-   * ids — never crash, and never rewrite this array on read. See src/mow/tools.ts.
+   * Job types performed on this mow (mow / trim / edge / blow). Absent/empty
+   * means none. These are plain enum VALUES, not references to Equipment
+   * entities (D-037): job history records what was done and is deliberately
+   * independent of the garage, so deleting equipment never affects it. Reuses
+   * the EquipmentType union purely as the shared job vocabulary. See
+   * src/mow/tools.ts.
    */
-  equipmentIds?: string[];
+  toolTypes?: EquipmentType[];
 }
 
 /** A mow before it has been persisted; the repository assigns the id. */

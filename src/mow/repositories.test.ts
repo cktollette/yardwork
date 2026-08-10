@@ -129,21 +129,21 @@ describe('MowRepository — hocInches (schema v3, additive)', () => {
   });
 });
 
-describe('MowRepository — equipmentIds (schema v5, additive)', () => {
-  it('round-trips a mow saved with equipmentIds', async () => {
+describe('MowRepository — toolTypes (schema v5, additive)', () => {
+  it('round-trips a mow saved with toolTypes', async () => {
     const saved = await mowRepository.saveMow(
-      makeNewMow({ equipmentIds: ['eq-1', 'eq-2'] }),
+      makeNewMow({ toolTypes: ['mower', 'trimmer'] }),
     );
-    expect(saved.equipmentIds).toEqual(['eq-1', 'eq-2']);
+    expect(saved.toolTypes).toEqual(['mower', 'trimmer']);
 
     const [reloaded] = await mowRepository.listMows();
-    expect(reloaded.equipmentIds).toEqual(['eq-1', 'eq-2']);
+    expect(reloaded.toolTypes).toEqual(['mower', 'trimmer']);
   });
 
-  it('reads a pre-v5 record with no equipmentIds as undefined (no transform)', async () => {
-    // An old record written before v5: no equipmentIds key at all.
+  it('reads a pre-v5 record with no toolTypes as undefined (no transform)', async () => {
+    // An old record written before v5: no toolTypes key at all.
     const legacy = {
-      id: 'legacy-eq',
+      id: 'legacy-tools',
       propertyId: 'prop-1',
       startedAt: 1_700_000_000_000,
       endedAt: 1_700_000_000_000 + 2400 * 1000,
@@ -151,22 +151,22 @@ describe('MowRepository — equipmentIds (schema v5, additive)', () => {
     };
     await AsyncStorage.setItem(MOWS_KEY, JSON.stringify([legacy]));
 
-    const byId = await mowRepository.getMowById('legacy-eq');
+    const byId = await mowRepository.getMowById('legacy-tools');
     expect(byId).not.toBeNull();
-    expect(byId?.equipmentIds).toBeUndefined();
+    expect(byId?.toolTypes).toBeUndefined();
 
     const [listed] = await mowRepository.listMows();
-    expect(listed.equipmentIds).toBeUndefined();
+    expect(listed.toolTypes).toBeUndefined();
   });
 
-  it('sets and clears equipmentIds via update', async () => {
+  it('sets and clears toolTypes via update', async () => {
     const saved = await mowRepository.saveMow(makeNewMow());
-    const set = await mowRepository.update(saved.id, { equipmentIds: ['eq-1'] });
-    expect(set.equipmentIds).toEqual(['eq-1']);
+    const set = await mowRepository.update(saved.id, { toolTypes: ['mower'] });
+    expect(set.toolTypes).toEqual(['mower']);
 
-    const cleared = await mowRepository.update(saved.id, { equipmentIds: [] });
-    expect('equipmentIds' in cleared).toBe(false);
-    expect((await mowRepository.getMowById(saved.id))?.equipmentIds).toBeUndefined();
+    const cleared = await mowRepository.update(saved.id, { toolTypes: [] });
+    expect('toolTypes' in cleared).toBe(false);
+    expect((await mowRepository.getMowById(saved.id))?.toolTypes).toBeUndefined();
   });
 });
 

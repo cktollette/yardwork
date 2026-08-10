@@ -23,9 +23,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // v4: Equipment collection added (@yardwork/equipment). Purely additive — a
 //     brand-new key; existing collections are untouched and older installs
 //     simply have no equipment, so no data transform runs on upgrade.
-// v5: Mow gained optional `equipmentIds` (tools used, referencing Equipment by
-//     id). Purely additive — absent reads as "no tools"; ids may dangle after an
-//     equipment hard-delete but reads tolerate that, so no data transform runs.
+// v5: Mow gained optional `toolTypes` (job types performed: mow/trim/edge/blow,
+//     plain enum values — NOT equipment references). Purely additive — absent
+//     reads as "no tools", so no data transform runs. (Earlier unreleased builds
+//     of this branch briefly used `equipmentIds`; that field is simply ignored.)
 export const SCHEMA_VERSION = 5;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
