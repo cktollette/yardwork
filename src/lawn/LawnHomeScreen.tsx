@@ -77,6 +77,13 @@ export default function LawnHomeScreen({ navigation }: Props) {
           />
         </>
       )}
+
+      <Button
+        label="Equipment garage"
+        variant="pill"
+        fullWidth
+        onPress={() => navigation.navigate('Garage')}
+      />
     </View>
   );
 }

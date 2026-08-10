@@ -3,6 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import EquipmentFormScreen from './src/equipment/EquipmentFormScreen';
+import GarageScreen from './src/equipment/GarageScreen';
 import LawnDrawScreen from './src/lawn/LawnDrawScreen';
 import MowDetailScreen from './src/mow/MowDetailScreen';
 import MowTimerScreen from './src/mow/MowTimerScreen';
@@ -51,6 +53,16 @@ export default function App() {
             name="LawnDraw"
             component={LawnDrawScreen}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Garage"
+            component={GarageScreen}
+            options={{ title: 'Garage' }}
+          />
+          <Stack.Screen
+            name="EquipmentForm"
+            component={EquipmentFormScreen}
+            options={{ title: 'Equipment' }}
           />
         </Stack.Navigator>
       </NavigationContainer>
