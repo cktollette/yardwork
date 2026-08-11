@@ -19,8 +19,9 @@
       [
         "@kingstinct/react-native-healthkit",
         {
+          "_comment": "DO NOT set NSHealthUpdateUsageDescription back to false. App Store Connect validation (error 90683) requires it because the react-native-healthkit binary REFERENCES HealthKit write APIs — Apple's validator scans for API references, not calls. We never write; the string states exactly that. Removing it breaks App Store upload. Read-only plist posture (D-046) is not achievable while this library is in the bundle.",
           "NSHealthShareUsageDescription": "Klippa reads your steps and walking distance to add them to your mow log.",
-          "NSHealthUpdateUsageDescription": false,
+          "NSHealthUpdateUsageDescription": "Klippa does not write to Apple Health. This permission is required by a library the app includes but is never used.",
           "background": false
         }
       ]
