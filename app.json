@@ -15,6 +15,12 @@
           "resizeMode": "contain",
           "backgroundColor": "#F2EDEB"
         }
+      ],
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Klippa reads your steps and walking distance to add them to your mow log."
+        }
       ]
     ],
     "ios": {
