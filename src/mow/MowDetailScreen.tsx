@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +9,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import Button from '../components/Button';
 import type { EquipmentType } from '../equipment/models';
 import { mowRepository } from './asyncStorageRepositories';
@@ -25,12 +29,19 @@ function sameTypes(a: EquipmentType[], b: EquipmentType[]): boolean {
   return a.length === b.length && a.every((t) => b.includes(t));
 }
 
+/** Whole number with thousands separators, engine-independent (no Intl). */
+function formatThousands(n: number): string {
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 type Props = RootStackScreenProps<'MowDetail'>;
 
 /**
- * Edit or delete a single logged mow. Date and time are plain text fields
- * (YYYY-MM-DD / HH:MM — no native picker, a v0 choice); duration is whole
- * minutes. Only fields the user actually changes are sent in the patch, so a
+ * Edit or delete a single logged mow. Date and time use native pickers; duration
+ * is whole minutes. The pickers write back into the same 'YYYY-MM-DD' / 'HH:MM'
+ * string state the old text fields used, so the save path (parseDateTimeField)
+ * and stored format are byte-identical — the picker changes the input mechanism,
+ * not the data. Only fields the user actually changes are sent in the patch, so a
  * date-only edit preserves the stored durationSeconds exactly. All persistence
  * goes through the repository — never AsyncStorage directly.
  */
@@ -76,6 +87,16 @@ export default function MowDetailScreen({ navigation, route }: Props) {
     setToolTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
     );
+  }, []);
+
+  // Pickers write back into the same string state the text fields used, so the
+  // save/diff path and the stored format are unchanged. Date mode only touches
+  // the date part; time mode only the time part.
+  const onChangeDate = useCallback((_event: DateTimePickerEvent, selected?: Date) => {
+    if (selected) setDateField(formatDateField(selected.getTime()));
+  }, []);
+  const onChangeTime = useCallback((_event: DateTimePickerEvent, selected?: Date) => {
+    if (selected) setTimeField(formatTimeField(selected.getTime()));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -173,27 +194,24 @@ export default function MowDetailScreen({ navigation, route }: Props) {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Date</Text>
-        <TextInput
-          style={styles.input}
-          value={dateField}
-          onChangeText={setDateField}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.textMuted}
-          autoCapitalize="none"
-          editable={!busy}
+        <DateTimePicker
+          value={new Date(parseDateTimeField(dateField, timeField) ?? mow.startedAt)}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'compact' : 'default'}
+          onChange={onChangeDate}
+          testID="mow-date-picker"
           accessibilityLabel="Mow date"
         />
       </View>
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Time</Text>
-        <TextInput
-          style={styles.input}
-          value={timeField}
-          onChangeText={setTimeField}
-          placeholder="HH:MM"
-          placeholderTextColor={colors.textMuted}
-          editable={!busy}
+        <DateTimePicker
+          value={new Date(parseDateTimeField(dateField, timeField) ?? mow.startedAt)}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'compact' : 'default'}
+          onChange={onChangeTime}
+          testID="mow-time-picker"
           accessibilityLabel="Mow start time"
         />
       </View>
@@ -218,6 +236,16 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           {/* Capture-only provenance (D-040) — read-only, never editable. */}
           <Text style={styles.weatherValue} testID="mow-weather">
             {`${mow.weather.tempF}°F · ${mow.weather.condition}`}
+          </Text>
+        </View>
+      )}
+
+      {mow.activity && (
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Activity</Text>
+          {/* Capture-only provenance (D-042) — read-only, never editable. */}
+          <Text style={styles.weatherValue} testID="mow-activity">
+            {`${formatThousands(mow.activity.steps)} steps · ${mow.activity.distanceMi} mi`}
           </Text>
         </View>
       )}

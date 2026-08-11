@@ -15,6 +15,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#F2EDEB"
         }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Klippa reads your steps and walking distance to add them to your mow log.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
       ]
     ],
     "ios": {

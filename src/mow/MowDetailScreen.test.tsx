@@ -1,12 +1,26 @@
 import { Alert } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import MowDetailScreen from './MowDetailScreen';
+import { formatDateField, formatTimeField } from './datetimeField';
 import type { Mow } from './models';
 import type { Weather } from '../weather/WeatherService';
+import type { Activity } from '../activity/ActivityService';
 
 jest.mock('./asyncStorageRepositories', () => ({
   mowRepository: { getMowById: jest.fn(), update: jest.fn(), delete: jest.fn() },
 }));
+
+// Native picker → a findable host element that just carries its props (onChange,
+// value, testID), so tests can drive onChange directly.
+jest.mock('@react-native-community/datetimepicker', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: (props: Record<string, unknown>) =>
+      React.createElement('DateTimePicker', props),
+  };
+});
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { mowRepository } = require('./asyncStorageRepositories');
@@ -119,6 +133,129 @@ describe('MowDetailScreen — weather display', () => {
     expect(patch).not.toHaveProperty('weather');
     // The line was still on screen right up to the save.
     expect(weatherLine(tree)).toBe('94°F · Clear');
+  });
+});
+
+const ACTIVITY: Activity = {
+  steps: 4213,
+  distanceMi: 1.87,
+  source: 'Apple Watch',
+  capturedAt: '2026-08-10T15:00:00.000Z',
+};
+
+function activityLine(tree: ReactTestRenderer): string | null {
+  const nodes = tree.root.findAllByProps({ testID: 'mow-activity' });
+  return nodes.length === 0 ? null : (nodes[0].props.children as string);
+}
+
+describe('MowDetailScreen — activity display', () => {
+  it('renders the activity line (thousands separator) when present', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ activity: ACTIVITY }));
+
+    const tree = await renderDetail();
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
+  });
+
+  it('renders nothing when the mow has no activity', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow());
+
+    const tree = await renderDetail();
+    expect(activityLine(tree)).toBeNull();
+  });
+
+  it('shows both weather and activity lines together', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ weather: WEATHER, activity: ACTIVITY }));
+
+    const tree = await renderDetail();
+    expect(weatherLine(tree)).toBe('94°F · Clear');
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
+  });
+
+  it('still shows activity after an edit, and the patch never carries activity', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ activity: ACTIVITY }));
+
+    const tree = await renderDetail();
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
+
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'Mow notes' }).props.onChangeText('nice');
+    });
+    await act(async () => {
+      tree.root.findByProps({ label: 'Save changes' }).props.onPress();
+    });
+
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { notes: 'nice' });
+    expect(mowRepository.update.mock.calls[0][1]).not.toHaveProperty('activity');
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
+  });
+});
+
+describe('MowDetailScreen — native datetime picker', () => {
+  async function firePicker(
+    tree: ReactTestRenderer,
+    testID: string,
+    selected: Date,
+  ): Promise<void> {
+    await act(async () => {
+      tree.root.findByProps({ testID }).props.onChange({ type: 'set' }, selected);
+    });
+  }
+
+  async function saveChanges(tree: ReactTestRenderer): Promise<void> {
+    await act(async () => {
+      tree.root.findByProps({ label: 'Save changes' }).props.onPress();
+    });
+  }
+
+  it('picking a date stores the byte-identical YYYY-MM-DD format', async () => {
+    // Local-time construction so the round-trip is timezone-independent.
+    const startedAt = new Date(2026, 6, 20, 10, 0).getTime(); // Jul 20 2026 10:00 local
+    mowRepository.getMowById.mockResolvedValue(mow({ startedAt }));
+
+    const tree = await renderDetail();
+    await firePicker(tree, 'mow-date-picker', new Date(2026, 0, 15, 8, 45)); // Jan 15
+    await saveChanges(tree);
+
+    // New date, original time preserved — exactly what the text field produced.
+    const expected = new Date(2026, 0, 15, 10, 0).getTime();
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { startedAt: expected });
+    const stored = mowRepository.update.mock.calls[0][1].startedAt;
+    expect(formatDateField(stored)).toBe('2026-01-15');
+    expect(formatTimeField(stored)).toBe('10:00');
+  });
+
+  it('picking a time stores the byte-identical HH:MM format', async () => {
+    const startedAt = new Date(2026, 6, 20, 10, 0).getTime();
+    mowRepository.getMowById.mockResolvedValue(mow({ startedAt }));
+
+    const tree = await renderDetail();
+    await firePicker(tree, 'mow-time-picker', new Date(2026, 6, 20, 6, 5)); // 06:05
+    await saveChanges(tree);
+
+    const expected = new Date(2026, 6, 20, 6, 5).getTime();
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { startedAt: expected });
+    const stored = mowRepository.update.mock.calls[0][1].startedAt;
+    expect(formatTimeField(stored)).toBe('06:05');
+    expect(formatDateField(stored)).toBe('2026-07-20');
+  });
+
+  it('a date edit leaves weather and activity provenance intact', async () => {
+    const startedAt = new Date(2026, 6, 20, 10, 0).getTime();
+    mowRepository.getMowById.mockResolvedValue(
+      mow({ startedAt, weather: WEATHER, activity: ACTIVITY }),
+    );
+
+    const tree = await renderDetail();
+    await firePicker(tree, 'mow-date-picker', new Date(2026, 0, 15, 8, 45));
+    await saveChanges(tree);
+
+    const patch = mowRepository.update.mock.calls[0][1];
+    expect(patch).toHaveProperty('startedAt');
+    expect(patch).not.toHaveProperty('weather');
+    expect(patch).not.toHaveProperty('activity');
+    // Provenance is still shown; nothing re-fires on edit.
+    expect(weatherLine(tree)).toBe('94°F · Clear');
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
   });
 });
 

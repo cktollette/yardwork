@@ -1,6 +1,7 @@
 import type { MowEdit } from './editMow';
 import type { Mow, NewMow, Position, Property } from './models';
 import type { Weather } from '../weather/WeatherService';
+import type { Activity } from '../activity/ActivityService';
 
 /**
  * Persistence boundary for mows.
@@ -37,6 +38,13 @@ export interface MowRepository {
    * (same idempotent contract as delete, D-027).
    */
   attachWeather(id: string, weather: Weather): Promise<void>;
+  /**
+   * Attach captured activity to a mow, setting only the `activity` field and
+   * leaving everything else untouched. Capture-only provenance (D-042): activity
+   * is written here once and never via update(). Silent no-op on an unknown id
+   * (same idempotent contract as delete, D-027).
+   */
+  attachActivity(id: string, activity: Activity): Promise<void>;
 }
 
 /** The fewest vertices that form a polygon. Enforced on write; see saveBoundary. */

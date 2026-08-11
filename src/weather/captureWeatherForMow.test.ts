@@ -1,14 +1,14 @@
 import { captureWeatherForMow, MAX_CAPTURE_AGE_MS } from './captureWeatherForMow';
-import type { Weather } from '../weather/WeatherService';
+import type { Weather } from './WeatherService';
 
 jest.mock('expo-location', () => ({
   getForegroundPermissionsAsync: jest.fn(),
   getLastKnownPositionAsync: jest.fn(),
 }));
-jest.mock('../weather', () => ({
+jest.mock('./OpenWeatherService', () => ({
   weatherService: { getCurrentConditions: jest.fn() },
 }));
-jest.mock('./asyncStorageRepositories', () => ({
+jest.mock('../mow/asyncStorageRepositories', () => ({
   mowRepository: { attachWeather: jest.fn() },
   propertyRepository: { getOrCreateDefault: jest.fn() },
 }));
@@ -16,9 +16,9 @@ jest.mock('./asyncStorageRepositories', () => ({
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Location = require('expo-location');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { weatherService } = require('../weather');
+const { weatherService } = require('./OpenWeatherService');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { mowRepository, propertyRepository } = require('./asyncStorageRepositories');
+const { mowRepository, propertyRepository } = require('../mow/asyncStorageRepositories');
 
 const WEATHER: Weather = {
   tempF: 94,
