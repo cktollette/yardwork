@@ -8,6 +8,7 @@
 
 import type { EquipmentType } from '../equipment/models';
 import type { Weather } from '../weather/WeatherService';
+import type { Activity } from '../activity/ActivityService';
 
 /** A `[longitude, latitude]` coordinate pair, GeoJSON axis order. */
 export type Position = [number, number];
@@ -66,11 +67,19 @@ export interface Mow {
    * run or found no reading — the save never waits on or fails for weather.
    */
   weather?: Weather;
+  /**
+   * Steps + walking/running distance for the mow's timer window, captured once
+   * at save time (capture-only provenance, D-042). Written exactly once by the
+   * best-effort capture path (see captureActivityForMow) and NEVER edited,
+   * backfilled, or cleared afterwards. Absent means capture didn't run, the
+   * window was too short, or HealthKit had nothing — the save never waits on it.
+   */
+  activity?: Activity;
 }
 
 /**
  * A mow before it has been persisted; the repository assigns the id. `weather`
- * is omitted too — it is provenance attached only by the capture path, never set
- * at save time.
+ * and `activity` are omitted too — both are provenance attached only by their
+ * capture paths, never set at save time.
  */
-export type NewMow = Omit<Mow, 'id' | 'weather'>;
+export type NewMow = Omit<Mow, 'id' | 'weather' | 'activity'>;

@@ -11,6 +11,7 @@ import {
 } from './repositories';
 import { ensureSchemaVersion } from '../storage/schema';
 import type { Weather } from '../weather/WeatherService';
+import type { Activity } from '../activity/ActivityService';
 
 export const MOWS_KEY = '@yardwork/mows';
 export const PROPERTIES_KEY = '@yardwork/properties';
@@ -108,6 +109,15 @@ class AsyncStorageMowRepository implements MowRepository {
       } else {
         delete updated.weather;
       }
+      // Activity is capture-only provenance too (D-042): same verbatim carry, so
+      // an edit — even one whose payload contains `activity: undefined` — can
+      // never clear or change it.
+      const existingActivity = mows[index].activity;
+      if (existingActivity !== undefined) {
+        updated.activity = existingActivity;
+      } else {
+        delete updated.activity;
+      }
       mows[index] = updated;
       await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
       return updated;
@@ -136,6 +146,20 @@ class AsyncStorageMowRepository implements MowRepository {
       if (index === -1) return;
       // Set only the weather field; leave every other field as stored.
       mows[index] = { ...mows[index], weather };
+      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+    });
+  }
+
+  async attachActivity(id: string, activity: Activity): Promise<void> {
+    return this.enqueue(async () => {
+      await ensureSchemaVersion();
+      const mows = await readArray<Mow>(MOWS_KEY);
+      const index = mows.findIndex((m) => m.id === id);
+      // Silent no-op on a gone record (D-027 idempotent pattern) — the mow may
+      // have been deleted between save and this best-effort capture.
+      if (index === -1) return;
+      // Set only the activity field; leave every other field as stored.
+      mows[index] = { ...mows[index], activity };
       await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
     });
   }

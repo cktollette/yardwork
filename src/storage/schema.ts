@@ -31,7 +31,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //     captured best-effort once at save time. Purely additive — absent reads as
 //     "no weather captured", so no data transform runs; older records without
 //     the field load cleanly.
-export const SCHEMA_VERSION = 6;
+// v7: Mow gained optional `activity` (steps/distanceMi/source/capturedAt),
+//     captured best-effort from HealthKit for the timer window. Purely additive —
+//     absent reads as "no activity captured", so no data transform runs; v6
+//     records (with or without weather) load cleanly.
+export const SCHEMA_VERSION = 7;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**
