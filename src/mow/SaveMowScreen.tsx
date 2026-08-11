@@ -16,7 +16,7 @@ import { mostRecentHoc } from './hoc';
 import ToolTypePicker from './ToolTypePicker';
 import { mostRecentToolTypes, normalizeToolTypes } from './tools';
 import { formatShortDuration, needsShortMowConfirmation } from './mowValidation';
-import { captureWeatherForMow } from './captureWeatherForMow';
+import { captureWeatherForMow } from '../weather/captureWeatherForMow';
 import { captureActivityForMow } from '../activity/captureActivityForMow';
 import type { RootStackScreenProps } from './navigation';
 import {

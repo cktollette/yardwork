@@ -20,7 +20,7 @@ jest.mock('../lawn/prompts', () => ({
 // Weather + activity capture are fire-and-forget; mock them so we can assert
 // the save never awaits either (and never touches HealthKit / network / the
 // repository from this screen).
-jest.mock('./captureWeatherForMow', () => ({ captureWeatherForMow: jest.fn() }));
+jest.mock('../weather/captureWeatherForMow', () => ({ captureWeatherForMow: jest.fn() }));
 jest.mock('../activity/captureActivityForMow', () => ({ captureActivityForMow: jest.fn() }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -28,7 +28,7 @@ const { mowRepository, propertyRepository } = require('./asyncStorageRepositorie
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { isThirdMowPromptDismissed } = require('../lawn/prompts');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { captureWeatherForMow } = require('./captureWeatherForMow');
+const { captureWeatherForMow } = require('../weather/captureWeatherForMow');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { captureActivityForMow } = require('../activity/captureActivityForMow');
 

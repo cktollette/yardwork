@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { polygonCentroid } from '../lawn/centroid';
-import { weatherService } from '../weather';
-import { mowRepository, propertyRepository } from './asyncStorageRepositories';
+import { weatherService } from './OpenWeatherService';
+import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
 
 /**
  * Best-effort weather capture for a just-saved mow.
