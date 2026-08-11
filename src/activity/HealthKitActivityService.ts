@@ -101,20 +101,33 @@ export class HealthKitActivityService implements ActivityService {
 
       const totalSteps = Math.round(sumQuantities(steps));
       const totalMiles = sumQuantities(distance);
-      // A window with nothing in either metric isn't worth recording.
-      if (totalSteps === 0 && totalMiles === 0) {
+      const distanceMi = Math.round(totalMiles * 100) / 100;
+
+      // Require BOTH metrics before attaching. Step count and walking/running
+      // distance are SEPARATE HealthKit quantities whose samples the iPhone's
+      // own pedometer flushes on INDEPENDENT schedules — one can commit minutes
+      // before the other. A partial like steps=0/distanceMi=0.1 is flush lag,
+      // not truth: a genuine 3-minute walking mow always produces both. So a
+      // zero in either metric is treated as "not flushed yet" — return null and
+      // let the retry schedule try again (revised D-045) rather than lock in a
+      // misleading partial. (Edge accepted: a rare genuinely zero-distance mow —
+      // tiny yard, mower barely moving — is sacrificed rather than surface a
+      // "0 steps" partial to testers during recruiting.)
+      if (totalSteps === 0 || totalMiles === 0) {
         warn(
-          `skip: empty window — authorized=${authorized}, ` +
-            `stepSamples=${steps.length}, distanceSamples=${distance.length}, ` +
+          `skip: partial/empty window — authorized=${authorized}, ` +
+            `steps=${totalSteps} (${steps.length} samples), ` +
+            `distanceMi=${distanceMi} (${distance.length} samples), ` +
             `window=[${new Date(startMs).toISOString()}, ${new Date(endMs).toISOString()}]`,
         );
         return null;
       }
 
       const source = firstSource(steps) ?? firstSource(distance);
+      warn(`read: steps=${totalSteps} distanceMi=${distanceMi} source=${source ?? 'unknown'}`);
       return {
         steps: totalSteps,
-        distanceMi: Math.round(totalMiles * 100) / 100,
+        distanceMi,
         ...(source ? { source } : {}),
         capturedAt: new Date().toISOString(),
       };

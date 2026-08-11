@@ -72,7 +72,8 @@ export async function captureActivityForMow(
         await mowRepository.attachActivity(id, activity);
         warn(
           `attempt ${attemptNumber}/${TOTAL_ATTEMPTS}: attached ` +
-            `steps=${activity.steps} distanceMi=${activity.distanceMi}`,
+            `steps=${activity.steps} distanceMi=${activity.distanceMi} ` +
+            `source=${activity.source ?? 'unknown'}`,
         );
         return true;
       } catch {

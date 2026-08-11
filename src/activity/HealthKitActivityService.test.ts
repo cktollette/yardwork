@@ -95,6 +95,46 @@ describe('HealthKitActivityService', () => {
     expect(await new HealthKitActivityService().getActivityForWindow(START, END)).toBeNull();
   });
 
+  // Steps and distance flush to HealthKit independently, so a partial result is
+  // flush lag, not truth. Require BOTH metrics before attaching; a zero in
+  // either returns null so the retry schedule keeps going.
+  it('returns null when distance is present but steps are zero (partial flush)', async () => {
+    routeQuery([], DISTANCE_SAMPLES); // steps not flushed yet, distance has
+
+    expect(await new HealthKitActivityService().getActivityForWindow(START, END)).toBeNull();
+  });
+
+  it('returns null when steps are present but distance is zero (partial flush)', async () => {
+    routeQuery(STEP_SAMPLES, []); // steps flushed, distance not yet
+
+    expect(await new HealthKitActivityService().getActivityForWindow(START, END)).toBeNull();
+  });
+
+  it('attaches only when both metrics are present', async () => {
+    routeQuery(STEP_SAMPLES, DISTANCE_SAMPLES);
+
+    const activity = await new HealthKitActivityService().getActivityForWindow(START, END);
+    expect(activity).toEqual({
+      steps: 4213,
+      distanceMi: 1.87,
+      source: 'Apple Watch',
+      capturedAt: expect.any(String),
+    });
+  });
+
+  it('logs a [activity] read line on the success path (steps/distanceMi/source)', async () => {
+    const warnSpy = console.warn as unknown as jest.Mock;
+
+    await new HealthKitActivityService().getActivityForWindow(START, END);
+
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('[activity]');
+    expect(logged).toContain('read:');
+    expect(logged).toContain('steps=4213');
+    expect(logged).toContain('distanceMi=1.87');
+    expect(logged).toContain('source=Apple Watch');
+  });
+
   // Regression pin for the query semantics verified against the native module:
   // the reported "no activity despite steps in the window" bug would be caused by
   // any of these three drifting, so pin them on the mock's received arguments.
@@ -124,17 +164,17 @@ describe('HealthKitActivityService', () => {
     expect(endDate.getTime()).toBe(END);
   });
 
-  it('logs a [activity] diagnostic naming the empty-window path (observability)', async () => {
-    routeQuery([], []);
+  it('logs a [activity] diagnostic naming the partial/empty path with per-metric counts', async () => {
+    routeQuery(STEP_SAMPLES, []); // partial: steps present, distance not flushed
     const warnSpy = console.warn as unknown as jest.Mock;
 
     expect(await new HealthKitActivityService().getActivityForWindow(START, END)).toBeNull();
 
     const logged = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
     expect(logged).toContain('[activity]');
-    expect(logged).toContain('empty window');
-    expect(logged).toContain('stepSamples=0');
-    expect(logged).toContain('distanceSamples=0');
+    expect(logged).toContain('partial/empty window');
+    expect(logged).toContain('distanceMi=0');
+    expect(logged).toContain('(0 samples)');
   });
 
   it('logs a [activity] diagnostic with the error name/message when the query throws', async () => {
