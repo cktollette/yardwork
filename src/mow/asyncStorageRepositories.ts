@@ -10,6 +10,7 @@ import {
   type PropertyRepository,
 } from './repositories';
 import { ensureSchemaVersion } from '../storage/schema';
+import type { Weather } from '../weather/WeatherService';
 
 export const MOWS_KEY = '@yardwork/mows';
 export const PROPERTIES_KEY = '@yardwork/properties';
@@ -34,18 +35,44 @@ async function readArray<T>(key: string): Promise<T[]> {
 }
 
 class AsyncStorageMowRepository implements MowRepository {
+  /**
+   * Serializes every mutation (save/update/delete/attachWeather) through a
+   * single promise chain, so each one reads a snapshot that already reflects all
+   * prior mutations. Without this, the whole-array read-modify-write pattern is
+   * lost-update-prone: two overlapping mutations read the same snapshot and the
+   * second write clobbers the first (e.g. a user edit racing weather capture).
+   * Reads are not enqueued — they don't write, so they can't clobber.
+   */
+  private mutations: Promise<unknown> = Promise.resolve();
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    // Run after the previous mutation settles (either outcome), so an earlier
+    // failure never wedges the queue.
+    const run = this.mutations.then(task, task);
+    // Keep the chain alive and swallow settled results so a rejected mutation
+    // doesn't surface as an unhandled rejection on the internal chain — the
+    // caller still sees the real outcome through `run`.
+    this.mutations = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
   async saveMow(input: NewMow): Promise<Mow> {
     // No orphan mows, ever (D-005). Checked before any write, so a rejected
     // save persists nothing.
     if (!input.propertyId) {
       throw new Error('Cannot save a mow without a propertyId');
     }
-    await ensureSchemaVersion();
-    const mow: Mow = { ...input, id: generateId() };
-    const mows = await readArray<Mow>(MOWS_KEY);
-    mows.push(mow);
-    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
-    return mow;
+    return this.enqueue(async () => {
+      await ensureSchemaVersion();
+      const mow: Mow = { ...input, id: generateId() };
+      const mows = await readArray<Mow>(MOWS_KEY);
+      mows.push(mow);
+      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+      return mow;
+    });
   }
 
   async listMows(): Promise<Mow[]> {
@@ -62,28 +89,55 @@ class AsyncStorageMowRepository implements MowRepository {
   }
 
   async update(id: string, patch: MowEdit): Promise<Mow> {
-    await ensureSchemaVersion();
-    const mows = await readArray<Mow>(MOWS_KEY);
-    const index = mows.findIndex((m) => m.id === id);
-    if (index === -1) {
-      throw new Error(`No mow with id ${id}`);
-    }
-    // applyMowEdit validates before we write, so a rejected edit (e.g. a
-    // non-positive duration) leaves stored data untouched.
-    const updated = applyMowEdit(mows[index], patch);
-    mows[index] = updated;
-    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
-    return updated;
+    return this.enqueue(async () => {
+      await ensureSchemaVersion();
+      const mows = await readArray<Mow>(MOWS_KEY);
+      const index = mows.findIndex((m) => m.id === id);
+      if (index === -1) {
+        throw new Error(`No mow with id ${id}`);
+      }
+      // applyMowEdit validates before we write, so a rejected edit (e.g. a
+      // non-positive duration) leaves stored data untouched.
+      const updated = applyMowEdit(mows[index], patch);
+      // Weather is capture-only provenance (D-040): an edit can never clear or
+      // change it, regardless of what the caller passes. Carry the stored value
+      // through verbatim.
+      const existingWeather = mows[index].weather;
+      if (existingWeather !== undefined) {
+        updated.weather = existingWeather;
+      } else {
+        delete updated.weather;
+      }
+      mows[index] = updated;
+      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+      return updated;
+    });
   }
 
   async delete(id: string): Promise<void> {
-    await ensureSchemaVersion();
-    const mows = await readArray<Mow>(MOWS_KEY);
-    const remaining = mows.filter((m) => m.id !== id);
-    // Idempotent: only write when something actually changed.
-    if (remaining.length !== mows.length) {
-      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(remaining));
-    }
+    return this.enqueue(async () => {
+      await ensureSchemaVersion();
+      const mows = await readArray<Mow>(MOWS_KEY);
+      const remaining = mows.filter((m) => m.id !== id);
+      // Idempotent: only write when something actually changed.
+      if (remaining.length !== mows.length) {
+        await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(remaining));
+      }
+    });
+  }
+
+  async attachWeather(id: string, weather: Weather): Promise<void> {
+    return this.enqueue(async () => {
+      await ensureSchemaVersion();
+      const mows = await readArray<Mow>(MOWS_KEY);
+      const index = mows.findIndex((m) => m.id === id);
+      // Silent no-op on a gone record (D-027 idempotent pattern) — the mow may
+      // have been deleted between save and this best-effort capture.
+      if (index === -1) return;
+      // Set only the weather field; leave every other field as stored.
+      mows[index] = { ...mows[index], weather };
+      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+    });
   }
 }
 

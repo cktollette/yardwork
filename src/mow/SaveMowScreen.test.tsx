@@ -17,10 +17,16 @@ jest.mock('../lawn/prompts', () => ({
   shouldPromptAfterMow: jest.fn(() => false),
 }));
 
+// Weather capture is fire-and-forget; mock it so we can assert the save never
+// awaits it (and never touches the real network / repository from this screen).
+jest.mock('./captureWeatherForMow', () => ({ captureWeatherForMow: jest.fn() }));
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { mowRepository, propertyRepository } = require('./asyncStorageRepositories');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { isThirdMowPromptDismissed } = require('../lawn/prompts');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { captureWeatherForMow } = require('./captureWeatherForMow');
 
 const navigation = { navigate: jest.fn(), replace: jest.fn(), goBack: jest.fn() };
 
@@ -71,9 +77,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   mowRepository.listMows.mockResolvedValue([]);
-  mowRepository.saveMow.mockResolvedValue(undefined);
+  mowRepository.saveMow.mockResolvedValue({ id: 'mow-1' });
   propertyRepository.getOrCreateDefault.mockResolvedValue({ id: 'prop-1', boundary: null });
   isThirdMowPromptDismissed.mockResolvedValue(true);
+  captureWeatherForMow.mockResolvedValue(undefined);
 });
 
 describe('SaveMowScreen — short-mow confirmation', () => {
@@ -119,5 +126,26 @@ describe('SaveMowScreen — short-mow confirmation', () => {
     expect(mowRepository.saveMow).toHaveBeenCalledWith(
       expect.objectContaining({ durationSeconds: 180 }),
     );
+  });
+});
+
+describe('SaveMowScreen — best-effort weather capture', () => {
+  it('fires capture with the saved mow id after a successful save', async () => {
+    const tree = await renderSave(600);
+    await pressSave(tree);
+
+    expect(mowRepository.saveMow).toHaveBeenCalledTimes(1);
+    expect(captureWeatherForMow).toHaveBeenCalledWith('mow-1');
+  });
+
+  it('completes the save without awaiting capture (zero coupling)', async () => {
+    // Capture that never resolves must not stall or fail the save.
+    captureWeatherForMow.mockReturnValue(new Promise(() => {}));
+
+    const tree = await renderSave(600);
+    await pressSave(tree);
+
+    // Save still finished and navigated on, despite capture hanging forever.
+    expect(navigation.navigate).toHaveBeenCalledWith('Tabs', { screen: 'Log' });
   });
 });

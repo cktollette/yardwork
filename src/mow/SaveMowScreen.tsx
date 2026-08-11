@@ -16,6 +16,7 @@ import { mostRecentHoc } from './hoc';
 import ToolTypePicker from './ToolTypePicker';
 import { mostRecentToolTypes, normalizeToolTypes } from './tools';
 import { formatShortDuration, needsShortMowConfirmation } from './mowValidation';
+import { captureWeatherForMow } from './captureWeatherForMow';
 import type { RootStackScreenProps } from './navigation';
 import {
   dismissThirdMowPrompt,
@@ -66,7 +67,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       const property = await propertyRepository.getOrCreateDefault();
       const trimmed = notes.trim();
       const normalizedTools = normalizeToolTypes(toolTypes);
-      await mowRepository.saveMow({
+      const saved = await mowRepository.saveMow({
         propertyId: property.id,
         startedAt: draft.startedAt,
         endedAt: draft.endedAt,
@@ -75,6 +76,11 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         ...(hocInches != null ? { hocInches } : {}),
         ...(normalizedTools ? { toolTypes: normalizedTools } : {}),
       });
+
+      // Best-effort weather capture, fire-and-forget: the save is already
+      // durable above. Deliberately NOT awaited — no weather failure may block,
+      // delay, or error a save. Timer flow only.
+      void captureWeatherForMow(saved.id);
 
       // Once they've logged a few mows but still have no lawn, nudge them once
       // to trace it (unlocks area/efficiency stats). Skippable, shown at most
