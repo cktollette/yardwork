@@ -16,6 +16,7 @@
           "backgroundColor": "#F2EDEB"
         }
       ],
+      "./plugins/withHealthKitReadOnly",
       [
         "react-native-health",
         {
