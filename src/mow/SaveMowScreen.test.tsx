@@ -17,9 +17,11 @@ jest.mock('../lawn/prompts', () => ({
   shouldPromptAfterMow: jest.fn(() => false),
 }));
 
-// Weather capture is fire-and-forget; mock it so we can assert the save never
-// awaits it (and never touches the real network / repository from this screen).
+// Weather + activity capture are fire-and-forget; mock them so we can assert
+// the save never awaits either (and never touches HealthKit / network / the
+// repository from this screen).
 jest.mock('./captureWeatherForMow', () => ({ captureWeatherForMow: jest.fn() }));
+jest.mock('../activity/captureActivityForMow', () => ({ captureActivityForMow: jest.fn() }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { mowRepository, propertyRepository } = require('./asyncStorageRepositories');
@@ -27,6 +29,8 @@ const { mowRepository, propertyRepository } = require('./asyncStorageRepositorie
 const { isThirdMowPromptDismissed } = require('../lawn/prompts');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { captureWeatherForMow } = require('./captureWeatherForMow');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { captureActivityForMow } = require('../activity/captureActivityForMow');
 
 const navigation = { navigate: jest.fn(), replace: jest.fn(), goBack: jest.fn() };
 
@@ -77,10 +81,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   mowRepository.listMows.mockResolvedValue([]);
-  mowRepository.saveMow.mockResolvedValue({ id: 'mow-1' });
+  // Echo the saved payload back with an id, so `saved` carries the timer window.
+  mowRepository.saveMow.mockImplementation(async (input: object) => ({ ...input, id: 'mow-1' }));
   propertyRepository.getOrCreateDefault.mockResolvedValue({ id: 'prop-1', boundary: null });
   isThirdMowPromptDismissed.mockResolvedValue(true);
   captureWeatherForMow.mockResolvedValue(undefined);
+  captureActivityForMow.mockResolvedValue(undefined);
 });
 
 describe('SaveMowScreen — short-mow confirmation', () => {
@@ -146,6 +152,38 @@ describe('SaveMowScreen — best-effort weather capture', () => {
     await pressSave(tree);
 
     // Save still finished and navigated on, despite capture hanging forever.
+    expect(navigation.navigate).toHaveBeenCalledWith('Tabs', { screen: 'Log' });
+  });
+});
+
+describe('SaveMowScreen — best-effort activity capture', () => {
+  it('fires activity capture with the saved mow (window included) after save', async () => {
+    const tree = await renderSave(600);
+    await pressSave(tree);
+
+    expect(captureActivityForMow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'mow-1',
+        startedAt: STARTED_AT,
+        endedAt: STARTED_AT + 600 * 1000,
+      }),
+    );
+  });
+
+  it('fires weather and activity from one save without interfering', async () => {
+    const tree = await renderSave(600);
+    await pressSave(tree);
+
+    expect(captureWeatherForMow).toHaveBeenCalledTimes(1);
+    expect(captureActivityForMow).toHaveBeenCalledTimes(1);
+  });
+
+  it('completes the save without awaiting activity capture (zero coupling)', async () => {
+    captureActivityForMow.mockReturnValue(new Promise(() => {}));
+
+    const tree = await renderSave(600);
+    await pressSave(tree);
+
     expect(navigation.navigate).toHaveBeenCalledWith('Tabs', { screen: 'Log' });
   });
 });
