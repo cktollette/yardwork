@@ -1,109 +1,82 @@
-import AppleHealthKit, {
-  HealthInputOptions,
-  HealthKitPermissions,
-  HealthUnit,
-  HealthValue,
-} from 'react-native-health';
+import {
+  isHealthDataAvailable,
+  queryQuantitySamples,
+  requestAuthorization,
+} from '@kingstinct/react-native-healthkit';
 import type { Activity, ActivityService } from './ActivityService';
 
 /**
  * HealthKit-backed ActivityService.
  *
- * The ONLY place `react-native-health` appears. HealthKit is treated purely as
- * an aggregator (D-043): we read step count and walking+running distance for a
- * window, sum the samples, and report totals — no per-sample analysis, no other
- * data types. Read-only scopes; no write permissions are ever requested.
+ * The ONLY place `@kingstinct/react-native-healthkit` appears. HealthKit is
+ * treated purely as an aggregator (D-043): we read step count and walking+
+ * running distance for a window, sum the samples, and report totals — no
+ * per-sample analysis, no other data types. Read-only authorization; write
+ * scopes are never requested.
  *
  * Single query, no retry (D-045): a failed or empty read yields `null` and the
- * mow simply has no activity. Every failure mode — denied permission, init
- * failure, query error, empty window — collapses to `null`; never throws.
+ * mow simply has no activity. Every failure mode — denied permission,
+ * authorization failure, query error, empty window — collapses to `null`; never
+ * throws.
  */
 
-/** A window sample, plus the optional source name HealthKit may attach. */
-type Sample = HealthValue & { sourceName?: string };
+// `as const` so the literal identifier types bind, which in turn constrains the
+// per-query `unit` to the right dimension ('count' for steps, 'mi' for distance).
+const STEP_COUNT = 'HKQuantityTypeIdentifierStepCount' as const;
+const DISTANCE = 'HKQuantityTypeIdentifierDistanceWalkingRunning' as const;
 
-/** Sum the numeric `value` of every sample. */
-function sumValues(samples: Sample[]): number {
-  return samples.reduce((total, s) => total + (typeof s.value === 'number' ? s.value : 0), 0);
+/** Minimal structural shape of the fields we read off a quantity sample. */
+type Sample = {
+  readonly quantity: number;
+  readonly sourceRevision?: { readonly source?: { readonly name?: string } };
+};
+
+/** Sum the `quantity` of every sample. */
+function sumQuantities(samples: readonly Sample[]): number {
+  return samples.reduce((total, s) => total + (typeof s.quantity === 'number' ? s.quantity : 0), 0);
 }
 
-/** First non-empty source name across samples (sample field, then metadata). */
-function firstSource(samples: Sample[]): string | undefined {
+/** First non-empty source name across samples (e.g. "Apple Watch"). */
+function firstSource(samples: readonly Sample[]): string | undefined {
   for (const s of samples) {
-    const fromMeta = s.metadata?.sourceName;
-    const name = s.sourceName ?? (typeof fromMeta === 'string' ? fromMeta : undefined);
+    const name = s.sourceRevision?.source?.name;
     if (name) return name;
   }
   return undefined;
 }
 
 export class HealthKitActivityService implements ActivityService {
-  /** Memoized init: HealthKit permissions are requested once, on first capture. */
-  private initPromise: Promise<void> | null = null;
+  /** Memoized: read authorization is requested once, on first capture. */
+  private authPromise: Promise<void> | null = null;
 
-  /** Read-only scopes: step count and walking+running distance. Nothing else. */
-  private permissions(): HealthKitPermissions {
-    return {
-      permissions: {
-        read: [
-          AppleHealthKit.Constants.Permissions.Steps,
-          AppleHealthKit.Constants.Permissions.DistanceWalkingRunning,
-        ],
-        write: [],
-      },
-    };
-  }
-
-  private ensureInit(): Promise<void> {
-    if (!this.initPromise) {
-      this.initPromise = new Promise<void>((resolve, reject) => {
-        AppleHealthKit.initHealthKit(this.permissions(), (error) => {
-          if (error) {
-            // Reset so a later capture can retry a fresh init.
-            this.initPromise = null;
-            reject(new Error(String(error)));
-          } else {
-            resolve();
-          }
+  /** Read-only authorization: step count and walking+running distance only. */
+  private ensureAuthorization(): Promise<void> {
+    if (!this.authPromise) {
+      this.authPromise = requestAuthorization({ toRead: [STEP_COUNT, DISTANCE] })
+        .then(() => undefined)
+        .catch((error) => {
+          // Reset so a later capture can retry a fresh authorization.
+          this.authPromise = null;
+          throw error;
         });
-      });
     }
-    return this.initPromise;
-  }
-
-  private stepSamples(options: HealthInputOptions): Promise<Sample[]> {
-    return new Promise((resolve, reject) => {
-      AppleHealthKit.getDailyStepCountSamples(options, (error, results) => {
-        if (error) reject(new Error(String(error)));
-        else resolve((results ?? []) as Sample[]);
-      });
-    });
-  }
-
-  private distanceSamples(options: HealthInputOptions): Promise<Sample[]> {
-    return new Promise((resolve, reject) => {
-      AppleHealthKit.getDailyDistanceWalkingRunningSamples(options, (error, results) => {
-        if (error) reject(new Error(String(error)));
-        else resolve((results ?? []) as Sample[]);
-      });
-    });
+    return this.authPromise;
   }
 
   async getActivityForWindow(startMs: number, endMs: number): Promise<Activity | null> {
     try {
-      await this.ensureInit();
+      if (!isHealthDataAvailable()) return null;
+      await this.ensureAuthorization();
 
-      const window: HealthInputOptions = {
-        startDate: new Date(startMs).toISOString(),
-        endDate: new Date(endMs).toISOString(),
-      };
+      const filter = { date: { startDate: new Date(startMs), endDate: new Date(endMs) } };
+      // limit: 0 → all samples in the window (see GenericQueryOptions docs).
       const [steps, distance] = await Promise.all([
-        this.stepSamples(window),
-        this.distanceSamples({ ...window, unit: HealthUnit.mile }),
+        queryQuantitySamples(STEP_COUNT, { filter, unit: 'count', limit: 0 }),
+        queryQuantitySamples(DISTANCE, { filter, unit: 'mi', limit: 0 }),
       ]);
 
-      const totalSteps = Math.round(sumValues(steps));
-      const totalMiles = sumValues(distance);
+      const totalSteps = Math.round(sumQuantities(steps));
+      const totalMiles = sumQuantities(distance);
       // A window with nothing in either metric isn't worth recording.
       if (totalSteps === 0 && totalMiles === 0) return null;
 
@@ -115,7 +88,7 @@ export class HealthKitActivityService implements ActivityService {
         capturedAt: new Date().toISOString(),
       };
     } catch {
-      // Denied permission, init failure, or a query error all land here.
+      // Denied authorization, unavailable HealthKit, or a query error all land here.
       return null;
     }
   }

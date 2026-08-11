@@ -16,11 +16,12 @@
           "backgroundColor": "#F2EDEB"
         }
       ],
-      "./plugins/withHealthKitReadOnly",
       [
-        "react-native-health",
+        "@kingstinct/react-native-healthkit",
         {
-          "healthSharePermission": "Klippa reads your steps and walking distance to add them to your mow log."
+          "NSHealthShareUsageDescription": "Klippa reads your steps and walking distance to add them to your mow log.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
         }
       ]
     ],

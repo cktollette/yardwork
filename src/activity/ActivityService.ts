@@ -2,9 +2,9 @@
  * Activity capture boundary.
  *
  * All HealthKit access lives behind this interface. Screens, the mow repository,
- * and the capture orchestrator depend on THIS type only — never on
- * `react-native-health` — so the source can be swapped without touching the rest
- * of the app. Mirrors the weather module's WeatherService boundary.
+ * and the capture orchestrator depend on THIS type only — never on the concrete
+ * HealthKit library — so the source can be swapped without touching the rest of
+ * the app. Mirrors the weather module's WeatherService boundary.
  */
 
 /**
