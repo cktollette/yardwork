@@ -3,6 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import MowDetailScreen from './MowDetailScreen';
 import type { Mow } from './models';
 import type { Weather } from '../weather/WeatherService';
+import type { Activity } from '../activity/ActivityService';
 
 jest.mock('./asyncStorageRepositories', () => ({
   mowRepository: { getMowById: jest.fn(), update: jest.fn(), delete: jest.fn() },
@@ -119,6 +120,60 @@ describe('MowDetailScreen — weather display', () => {
     expect(patch).not.toHaveProperty('weather');
     // The line was still on screen right up to the save.
     expect(weatherLine(tree)).toBe('94°F · Clear');
+  });
+});
+
+const ACTIVITY: Activity = {
+  steps: 4213,
+  distanceMi: 1.87,
+  source: 'Apple Watch',
+  capturedAt: '2026-08-10T15:00:00.000Z',
+};
+
+function activityLine(tree: ReactTestRenderer): string | null {
+  const nodes = tree.root.findAllByProps({ testID: 'mow-activity' });
+  return nodes.length === 0 ? null : (nodes[0].props.children as string);
+}
+
+describe('MowDetailScreen — activity display', () => {
+  it('renders the activity line (thousands separator) when present', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ activity: ACTIVITY }));
+
+    const tree = await renderDetail();
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
+  });
+
+  it('renders nothing when the mow has no activity', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow());
+
+    const tree = await renderDetail();
+    expect(activityLine(tree)).toBeNull();
+  });
+
+  it('shows both weather and activity lines together', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ weather: WEATHER, activity: ACTIVITY }));
+
+    const tree = await renderDetail();
+    expect(weatherLine(tree)).toBe('94°F · Clear');
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
+  });
+
+  it('still shows activity after an edit, and the patch never carries activity', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ activity: ACTIVITY }));
+
+    const tree = await renderDetail();
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
+
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'Mow notes' }).props.onChangeText('nice');
+    });
+    await act(async () => {
+      tree.root.findByProps({ label: 'Save changes' }).props.onPress();
+    });
+
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { notes: 'nice' });
+    expect(mowRepository.update.mock.calls[0][1]).not.toHaveProperty('activity');
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
   });
 });
 

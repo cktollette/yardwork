@@ -25,6 +25,11 @@ function sameTypes(a: EquipmentType[], b: EquipmentType[]): boolean {
   return a.length === b.length && a.every((t) => b.includes(t));
 }
 
+/** Whole number with thousands separators, engine-independent (no Intl). */
+function formatThousands(n: number): string {
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 type Props = RootStackScreenProps<'MowDetail'>;
 
 /**
@@ -218,6 +223,16 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           {/* Capture-only provenance (D-040) — read-only, never editable. */}
           <Text style={styles.weatherValue} testID="mow-weather">
             {`${mow.weather.tempF}°F · ${mow.weather.condition}`}
+          </Text>
+        </View>
+      )}
+
+      {mow.activity && (
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Activity</Text>
+          {/* Capture-only provenance (D-042) — read-only, never editable. */}
+          <Text style={styles.weatherValue} testID="mow-activity">
+            {`${formatThousands(mow.activity.steps)} steps · ${mow.activity.distanceMi} mi`}
           </Text>
         </View>
       )}
