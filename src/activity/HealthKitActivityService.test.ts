@@ -36,6 +36,12 @@ beforeEach(() => {
   HealthKit.isHealthDataAvailable.mockReturnValue(true);
   HealthKit.requestAuthorization.mockResolvedValue(true);
   routeQuery(STEP_SAMPLES, DISTANCE_SAMPLES);
+  // Silence (and capture) the __DEV__ diagnostics.
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('HealthKitActivityService', () => {
@@ -87,5 +93,59 @@ describe('HealthKitActivityService', () => {
     routeQuery([], []);
 
     expect(await new HealthKitActivityService().getActivityForWindow(START, END)).toBeNull();
+  });
+
+  // Regression pin for the query semantics verified against the native module:
+  // the reported "no activity despite steps in the window" bug would be caused by
+  // any of these three drifting, so pin them on the mock's received arguments.
+  it('queries each metric over the window with no-limit, correct units, and Date bounds', async () => {
+    await new HealthKitActivityService().getActivityForWindow(START, END);
+
+    const stepCall = HealthKit.queryQuantitySamples.mock.calls.find(
+      (c: unknown[]) => c[0] === STEP_ID,
+    );
+    const distCall = HealthKit.queryQuantitySamples.mock.calls.find(
+      (c: unknown[]) => c[0] === DISTANCE_ID,
+    );
+    expect(stepCall).toBeDefined();
+    expect(distCall).toBeDefined();
+
+    // limit 0 == HKObjectQueryNoLimit (all samples) — NOT a positive cap.
+    expect(stepCall[1].limit).toBe(0);
+    expect(distCall[1].limit).toBe(0);
+    // Exact unit strings for each quantity.
+    expect(stepCall[1].unit).toBe('count');
+    expect(distCall[1].unit).toBe('mi');
+    // Window passed as Date objects (not epoch ms / ISO strings) equal to [START, END].
+    const { startDate, endDate } = stepCall[1].filter.date;
+    expect(startDate).toBeInstanceOf(Date);
+    expect(endDate).toBeInstanceOf(Date);
+    expect(startDate.getTime()).toBe(START);
+    expect(endDate.getTime()).toBe(END);
+  });
+
+  it('logs a [activity] diagnostic naming the empty-window path (observability)', async () => {
+    routeQuery([], []);
+    const warnSpy = console.warn as unknown as jest.Mock;
+
+    expect(await new HealthKitActivityService().getActivityForWindow(START, END)).toBeNull();
+
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('[activity]');
+    expect(logged).toContain('empty window');
+    expect(logged).toContain('stepSamples=0');
+    expect(logged).toContain('distanceSamples=0');
+  });
+
+  it('logs a [activity] diagnostic with the error name/message when the query throws', async () => {
+    HealthKit.queryQuantitySamples.mockRejectedValue(new TypeError('boom in native bridge'));
+    const warnSpy = console.warn as unknown as jest.Mock;
+
+    expect(await new HealthKitActivityService().getActivityForWindow(START, END)).toBeNull();
+
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('[activity]');
+    expect(logged).toContain('TypeError');
+    expect(logged).toContain('boom in native bridge');
   });
 });
