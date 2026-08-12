@@ -2,7 +2,7 @@
 
 Static tester-recruitment funnel and privacy policy for getklippa.com. The
 landing page's primary call to action is the TestFlight join link for the
-Dallas beta. Deploys via Cloudflare Pages from the `site/` directory.
+beta. Deploys via Cloudflare Pages from the `site/` directory.
 Production branch: `main`.
 
 ## Assets
