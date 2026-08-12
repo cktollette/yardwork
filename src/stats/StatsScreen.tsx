@@ -83,15 +83,11 @@ export default function StatsScreen({ navigation }: Props) {
               value={`${Math.round(totalAreaSqFt(property.zones)).toLocaleString()} sq ft`}
             />
             <Pressable
-              onPress={() =>
-                navigation.navigate('LawnDraw', {
-                  propertyId: property.id,
-                  mode: 'edit',
-                })
-              }
+              // A lawn now has multiple zones; edit them on the Lawn tab.
+              onPress={() => navigation.navigate('Lawn')}
               accessibilityRole="button"
             >
-              <Text style={styles.lawnLink}>Edit lawn</Text>
+              <Text style={styles.lawnLink}>Manage zones</Text>
             </Pressable>
           </>
         ) : (

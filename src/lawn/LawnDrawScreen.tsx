@@ -26,6 +26,8 @@ import { propertyRepository } from '../mow/asyncStorageRepositories';
 import { MIN_BOUNDARY_VERTICES } from '../mow/repositories';
 import { colors, radii, spacing, typography } from '../theme';
 import { computeAreaSqFt } from './area';
+import { polygonCentroid } from './centroid';
+import { poolZoneVertices } from './zones';
 import {
   CURRENT_POSITION_TIMEOUT_MS,
   decideLocationFlow,
@@ -40,8 +42,10 @@ import {
  * panning from editing. Draw OFF → the map pans/zooms and handles are inert, so
  * you can frame the yard. Draw ON → tapping the map appends a vertex, dragging
  * a handle moves it (immediately — no long-press), and tapping the first vertex
- * closes the ring. Persistence is one polygon per property (D-005): saving
- * replaces whatever was there.
+ * closes the ring. The gesture layer operates purely on local `vertices` state
+ * and is zone-agnostic; only the load/save seams and camera framing are
+ * parameterized by zone. In edit mode it loads and writes back ONE zone (by
+ * zoneId); in create mode it adds a new zone.
  */
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LawnDraw'>;
@@ -60,7 +64,7 @@ function formatArea(sqft: number): string {
 }
 
 export default function LawnDrawScreen({ route, navigation }: Props) {
-  const { propertyId, mode } = route.params;
+  const { propertyId, mode, zoneId } = route.params;
   const insets = useSafeAreaInsets();
 
   const [vertices, setVertices] = useState<Position[]>([]);
@@ -133,25 +137,26 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
     });
   }, []);
 
-  // Edit mode: preload the saved boundary (already a closed, valid polygon).
+  // Edit mode: preload the zone's saved vertices (already a closed, valid ring).
   useEffect(() => {
     if (mode !== 'edit') return;
     let active = true;
     (async () => {
       const property = await propertyRepository.getById(propertyId);
       if (!active) return;
-      if (property?.boundary && property.boundary.length >= MIN_BOUNDARY_VERTICES) {
-        setVertices(property.boundary);
+      const zone = property?.zones.find((z) => z.id === zoneId);
+      if (zone && zone.vertices.length >= MIN_BOUNDARY_VERTICES) {
+        setVertices(zone.vertices);
         setClosed(true);
-        // Same controlled camera state create mode uses — center on the polygon.
-        setCameraCenter(property.boundary[0]);
+        // Same controlled camera state create mode uses — center on the zone.
+        setCameraCenter(zone.vertices[0]);
       }
       setLoading(false);
     })();
     return () => {
       active = false;
     };
-  }, [mode, propertyId]);
+  }, [mode, propertyId, zoneId]);
 
   // Create mode: center the camera on the user's location. This is the impure
   // shell around ./location's pure helpers — it calls expo-location and feeds
@@ -163,6 +168,20 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
     if (mode !== 'create') return;
     let active = true;
     (async () => {
+      // Adding another zone: frame the extent of the existing zones — the user
+      // is adding (say) their back yard, so the map should already be at their
+      // house. The first-ever zone has none, so it falls through to the
+      // location-resolve flow below.
+      const property = await propertyRepository.getById(propertyId);
+      if (!active) return;
+      const existingCentroid = property
+        ? polygonCentroid(poolZoneVertices(property.zones))
+        : null;
+      if (existingCentroid) {
+        setCameraCenter(existingCentroid);
+        return;
+      }
+
       const { status } = await Location.getForegroundPermissionsAsync();
       let gate = decideLocationFlow(status as any);
       // Only prompt when undetermined; a prior denial goes straight to fallback.
@@ -200,7 +219,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
     // Runs once on mount for create mode; vertices is read live via closure and
     // must not re-trigger the effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, propertyId]);
 
   const screenToCoord = useCallback(
     async (pageX: number, pageY: number): Promise<Position | null> => {
@@ -273,7 +292,12 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
     if (vertices.length < MIN_BOUNDARY_VERTICES) return;
     setSaving(true);
     try {
-      await propertyRepository.saveBoundary(propertyId, vertices);
+      // Edit → write back to THIS zone only; create → add a new zone.
+      if (mode === 'edit' && zoneId) {
+        await propertyRepository.updateZone(propertyId, zoneId, { vertices });
+      } else {
+        await propertyRepository.addZone(propertyId, { vertices });
+      }
       navigation.goBack();
     } catch (err) {
       setSaving(false);
@@ -282,7 +306,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
         err instanceof Error ? err.message : 'Please try again.',
       );
     }
-  }, [vertices, propertyId, navigation]);
+  }, [vertices, propertyId, mode, zoneId, navigation]);
 
   const cancel = useCallback(() => {
     if (vertices.length === 0 || saving) {
@@ -297,22 +321,26 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
 
   const removeLawn = useCallback(() => {
     Alert.alert(
-      'Remove your lawn?',
-      'This deletes the saved boundary. Area and efficiency stats will lock again until you draw a new one.',
+      'Remove this zone?',
+      'This deletes the zone. If it is your last zone, area and efficiency stats will lock again until you draw a new one.',
       [
-        { text: 'Keep lawn', style: 'cancel' },
+        { text: 'Keep zone', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
+            if (!zoneId) {
+              navigation.goBack();
+              return;
+            }
             setSaving(true);
             try {
-              await propertyRepository.clearBoundary(propertyId);
+              await propertyRepository.deleteZone(propertyId, zoneId);
               navigation.goBack();
             } catch (err) {
               setSaving(false);
               Alert.alert(
-                "Couldn't remove your lawn",
+                "Couldn't remove this zone",
                 err instanceof Error ? err.message : 'Please try again.',
               );
             }
@@ -320,7 +348,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
         },
       ],
     );
-  }, [propertyId, navigation]);
+  }, [propertyId, zoneId, navigation]);
 
   const lineShape = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(
     () => ({
@@ -456,6 +484,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
             <Pressable
               onPress={save}
               disabled={saving}
+              testID="save-lawn"
               style={[styles.btn, styles.btnPrimary, saving && styles.btnDisabled]}
             >
               <Text style={[styles.btnText, styles.btnTextOn]}>
