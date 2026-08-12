@@ -94,7 +94,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       if (
         shouldPromptAfterMow({
           mowCount: mows.length,
-          hasBoundary: hasLawn(property.boundary),
+          hasBoundary: hasLawn(property.zones),
           dismissed,
         })
       ) {

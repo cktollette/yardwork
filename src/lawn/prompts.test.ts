@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Position } from '../mow/models';
+import type { Position, Zone } from '../mow/models';
 import {
   dismissOnboarding,
   dismissThirdMowPrompt,
@@ -24,11 +24,12 @@ const TRIANGLE: Position[] = [
   [1, 0],
   [0, 1],
 ];
+const zone = (): Zone => ({ id: 'z1', name: 'Lawn', vertices: TRIANGLE, areaSqFt: 100 });
 
 describe('hasLawn', () => {
-  it('is true only for a ring at/above the minimum vertex count', () => {
-    expect(hasLawn(TRIANGLE)).toBe(true);
-    expect(hasLawn([[0, 0], [1, 1]])).toBe(false);
+  it('is true once at least one zone exists', () => {
+    expect(hasLawn([zone()])).toBe(true);
+    expect(hasLawn([zone(), zone()])).toBe(true);
     expect(hasLawn([])).toBe(false);
     expect(hasLawn(null)).toBe(false);
     expect(hasLawn(undefined)).toBe(false);

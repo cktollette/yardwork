@@ -83,7 +83,7 @@ beforeEach(() => {
   mowRepository.listMows.mockResolvedValue([]);
   // Echo the saved payload back with an id, so `saved` carries the timer window.
   mowRepository.saveMow.mockImplementation(async (input: object) => ({ ...input, id: 'mow-1' }));
-  propertyRepository.getOrCreateDefault.mockResolvedValue({ id: 'prop-1', boundary: null });
+  propertyRepository.getOrCreateDefault.mockResolvedValue({ id: 'prop-1', zones: [] });
   isThirdMowPromptDismissed.mockResolvedValue(true);
   captureWeatherForMow.mockResolvedValue(undefined);
   captureActivityForMow.mockResolvedValue(undefined);

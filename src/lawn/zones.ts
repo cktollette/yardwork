@@ -1,3 +1,4 @@
+import type { Zone } from '../mow/models';
 import { MIGRATED_ZONE_NAME } from './migrateProperty';
 
 /**
@@ -11,4 +12,13 @@ import { MIGRATED_ZONE_NAME } from './migrateProperty';
  */
 export function defaultZoneName(existingCount: number): string {
   return existingCount === 0 ? MIGRATED_ZONE_NAME : `Zone ${existingCount + 1}`;
+}
+
+/**
+ * Total lawn area in square feet — the sum of every zone's stored area. Empty
+ * lawn (no zones) sums to 0. Each zone's areaSqFt was computed on write, so this
+ * never recomputes geometry.
+ */
+export function totalAreaSqFt(zones: Zone[]): number {
+  return zones.reduce((sum, zone) => sum + zone.areaSqFt, 0);
 }

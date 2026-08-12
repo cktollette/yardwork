@@ -9,6 +9,7 @@ import { formatDuration, formatMowDate } from '../mow/format';
 import type { Mow, Property } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
 import { deriveStats } from '../stats/deriveStats';
+import { totalAreaSqFt } from '../lawn/zones';
 import { colors, spacing, typography } from '../theme';
 
 type Props = RootTabScreenProps<'Home'>;
@@ -73,7 +74,9 @@ export default function HomeScreen({ navigation }: Props) {
     );
   }
 
-  const areaSqFt = property.areaSqFt ?? null;
+  // Total lawn area = sum of zone areas; null (no zones) keeps area stats gated.
+  const totalArea = totalAreaSqFt(property.zones);
+  const areaSqFt = totalArea > 0 ? totalArea : null;
   const stats = deriveStats(mows, { areaSqFt, now: Date.now() });
   const lastMow = mows[0]; // listMows returns newest-first
   const streak = stats.currentStreakWeeks;

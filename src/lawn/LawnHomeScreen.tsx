@@ -8,6 +8,7 @@ import type { Property } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
 import { colors, spacing, typography } from '../theme';
 import { hasLawn } from './prompts';
+import { totalAreaSqFt } from './zones';
 
 type Props = RootTabScreenProps<'Lawn'>;
 
@@ -35,7 +36,7 @@ export default function LawnHomeScreen({ navigation }: Props) {
   // First read in flight: render nothing rather than a flash of the empty state.
   if (property === null) return <View style={styles.container} />;
 
-  const drawn = hasLawn(property.boundary);
+  const drawn = hasLawn(property.zones);
 
   return (
     <View style={styles.container}>
@@ -44,7 +45,7 @@ export default function LawnHomeScreen({ navigation }: Props) {
           <Card>
             <Text style={styles.cardLabel}>Lawn area</Text>
             <Text style={styles.cardValue}>
-              {`${Math.round(property.areaSqFt as number).toLocaleString()} sq ft`}
+              {`${Math.round(totalAreaSqFt(property.zones)).toLocaleString()} sq ft`}
             </Text>
           </Card>
           <Button

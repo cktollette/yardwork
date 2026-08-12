@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Position } from '../mow/models';
-import { MIN_BOUNDARY_VERTICES } from '../mow/repositories';
+import type { Zone } from '../mow/models';
 
 /**
  * When to nudge the user toward drawing their lawn, and remembering when
@@ -18,9 +17,9 @@ export const THIRD_MOW_PROMPT_DISMISSED_KEY =
 /** Mows logged before a lawn-less user gets the one-time "trace it" nudge. */
 export const THIRD_MOW_PROMPT_THRESHOLD = 3;
 
-/** True once a valid polygon (>= the minimum vertices) has been drawn. */
-export function hasLawn(boundary: Position[] | null | undefined): boolean {
-  return (boundary?.length ?? 0) >= MIN_BOUNDARY_VERTICES;
+/** True once at least one lawn zone has been traced. */
+export function hasLawn(zones: Zone[] | null | undefined): boolean {
+  return (zones?.length ?? 0) > 0;
 }
 
 /** First-launch onboarding: offer to draw until they draw one or skip. */
