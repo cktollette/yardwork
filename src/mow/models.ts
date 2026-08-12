@@ -90,11 +90,18 @@ export interface Mow {
    * window was too short, or HealthKit had nothing — the save never waits on it.
    */
   activity?: Activity;
+  /**
+   * RESERVED (D-036): which lawn zones this mow covered. Declared now so the
+   * persisted shape is forward-compatible, but NO code path in this PR ever
+   * writes or reads it — per-mow zone selection is a future feature. Absent on
+   * every mow today; enforced by a test that greps the source for the field.
+   */
+  zoneIds?: string[];
 }
 
 /**
  * A mow before it has been persisted; the repository assigns the id. `weather`
- * and `activity` are omitted too — both are provenance attached only by their
- * capture paths, never set at save time.
+ * and `activity` are omitted (provenance attached only by their capture paths);
+ * `zoneIds` is omitted too — it's a reserved field never set at save time.
  */
-export type NewMow = Omit<Mow, 'id' | 'weather' | 'activity'>;
+export type NewMow = Omit<Mow, 'id' | 'weather' | 'activity' | 'zoneIds'>;
