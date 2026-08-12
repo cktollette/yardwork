@@ -133,3 +133,57 @@ describe('LawnHomeScreen — zone list', () => {
     expect(tree.root.findAllByProps({ testID: 'lawn-total' })).toHaveLength(0);
   });
 });
+
+describe('LawnHomeScreen — zone grass type', () => {
+  it('persists a selected grass type to the zone', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue(
+      property([zone({ id: 'z1', name: 'Front' })]),
+    );
+    propertyRepository.updateZone.mockResolvedValue(
+      property([zone({ id: 'z1', name: 'Front', grassType: 'Bermuda' })]),
+    );
+
+    const tree = await renderLawn();
+    await act(async () => {
+      tree.root
+        .findByProps({ accessibilityLabel: 'Grass type Bermuda for Front' })
+        .props.onPress();
+    });
+
+    expect(propertyRepository.updateZone).toHaveBeenCalledWith('p1', 'z1', {
+      grassType: 'Bermuda',
+    });
+  });
+
+  it('clears the grass type when the selected chip is tapped again (deselect)', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue(
+      property([zone({ id: 'z1', name: 'Front', grassType: 'Zoysia' })]),
+    );
+    propertyRepository.updateZone.mockResolvedValue(
+      property([zone({ id: 'z1', name: 'Front' })]),
+    );
+
+    const tree = await renderLawn();
+    await act(async () => {
+      tree.root
+        .findByProps({ accessibilityLabel: 'Grass type Zoysia for Front' })
+        .props.onPress();
+    });
+
+    expect(propertyRepository.updateZone).toHaveBeenCalledWith('p1', 'z1', {
+      grassType: undefined,
+    });
+  });
+
+  it('shows no grass type selected when the zone has none', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue(
+      property([zone({ id: 'z1', name: 'Front' })]),
+    );
+
+    const tree = await renderLawn();
+    const bermuda = tree.root.findByProps({
+      accessibilityLabel: 'Grass type Bermuda for Front',
+    });
+    expect(bermuda.props.accessibilityState).toEqual({ selected: false });
+  });
+});

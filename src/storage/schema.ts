@@ -45,7 +45,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //     onboarding friction. Purely additive / backward-compatible — existing
 //     records with a model are still valid and untouched; new records may omit
 //     it, so no data transform runs on upgrade.
-export const SCHEMA_VERSION = 9;
+// v10: Zone gained optional `grassType` (curated list, per zone). Purely
+//     additive — absent reads as "not set", so no data transform runs; v8/v9
+//     zones load cleanly and the v7→v8 migration does not populate it.
+export const SCHEMA_VERSION = 10;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**

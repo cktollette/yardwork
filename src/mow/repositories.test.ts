@@ -301,6 +301,29 @@ describe('PropertyRepository zones', () => {
     expect(retraced.zones[0].name).toBe('Back'); // preserved
   });
 
+  it('sets, persists, and clears a zone grass type (optional)', async () => {
+    const { id } = await propertyRepository.getOrCreateDefault();
+    const added = await propertyRepository.addZone(id, { vertices: TRIANGLE });
+    const zoneId = added.zones[0].id;
+
+    // Absent by default.
+    expect('grassType' in added.zones[0]).toBe(false);
+
+    // Set it — persisted, and unrelated fields preserved.
+    const tagged = await propertyRepository.updateZone(id, zoneId, { grassType: 'Bermuda' });
+    expect(tagged.zones[0].grassType).toBe('Bermuda');
+    expect(tagged.zones[0].vertices).toEqual(TRIANGLE);
+    expect((await propertyRepository.getById(id))?.zones[0].grassType).toBe('Bermuda');
+
+    // A name-only edit leaves grass type untouched (omitted key).
+    const renamed = await propertyRepository.updateZone(id, zoneId, { name: 'Front' });
+    expect(renamed.zones[0].grassType).toBe('Bermuda');
+
+    // Clear it — present key with undefined value drops it.
+    const cleared = await propertyRepository.updateZone(id, zoneId, { grassType: undefined });
+    expect('grassType' in cleared.zones[0]).toBe(false);
+  });
+
   it('rejects a zone with fewer than 3 vertices and writes nothing', async () => {
     const { id } = await propertyRepository.getOrCreateDefault();
 

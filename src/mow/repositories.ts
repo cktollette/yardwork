@@ -50,10 +50,16 @@ export interface MowRepository {
 /** The fewest vertices that form a polygon. Enforced on every zone write. */
 export const MIN_BOUNDARY_VERTICES = 3;
 
-/** A zone edit: rename, re-trace, or both. Omitted keys are left unchanged. */
+/**
+ * A zone edit: rename, re-trace, set/clear grass type, or any combination.
+ * Omitted keys are left unchanged. For `grassType`, a present key with an empty
+ * or undefined value CLEARS it (present-but-undefined pattern); omit the key to
+ * leave it as-is.
+ */
 export interface ZoneEdit {
   name?: string;
   vertices?: Position[];
+  grassType?: string;
 }
 
 /** Persistence boundary for properties. See MowRepository for the swap rationale. */

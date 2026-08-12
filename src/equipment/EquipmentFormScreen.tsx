@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import Button from '../components/Button';
+import ChipRow from '../components/ChipRow';
 import SegmentedControl from '../components/SegmentedControl';
 import type { RootStackScreenProps } from '../mow/navigation';
 import { colors, radii, spacing, typography } from '../theme';
@@ -175,29 +176,13 @@ export default function EquipmentFormScreen({ navigation, route }: Props) {
           editable={!busy}
           accessibilityLabel="Brand"
         />
-        <View style={styles.chips}>
-          {brandsForType(type).map((b) => {
-            const selected = b === brand;
-            return (
-              <Pressable
-                key={b}
-                onPress={() => setBrand(b)}
-                disabled={busy}
-                accessibilityRole="button"
-                accessibilityLabel={`Brand ${b}`}
-                style={({ pressed }) => [
-                  styles.chip,
-                  selected && styles.chipSelected,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                  {b}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <ChipRow
+          options={brandsForType(type)}
+          selected={brand || undefined}
+          onChange={(b) => setBrand(b ?? '')}
+          disabled={busy}
+          accessibilityLabel={(b) => `Brand ${b}`}
+        />
       </View>
 
       <View style={styles.field}>
@@ -300,18 +285,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
     backgroundColor: colors.surface,
   },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  chipSelected: { backgroundColor: colors.sand, borderColor: colors.sand },
-  chipText: { fontSize: typography.bodySmall, color: colors.textSecondary },
-  chipTextSelected: { color: colors.ink, fontWeight: '600' },
   deleteButton: {
     paddingVertical: spacing.lg,
     borderRadius: radii.pill,
