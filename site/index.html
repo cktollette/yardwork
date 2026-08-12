@@ -23,154 +23,208 @@
 
   <style>
     :root {
-      --navy: #1a2f4a;
-      --navy-hover: #24406a;
-      --yellow-bg: #fdf3c9;
-      --yellow-border: #e6c84a;
-      --ink: #1c1c1c;
-      --muted: #55606e;
-      --rule: #d7dde4;
+      --cream: #F2EDEB;    /* page background; button text on green; text on the dark footer */
+      --dark: #2D2A32;     /* body text; footer band */
+      --green: #468367;    /* buttons, headings, links, closing band */
+      --green-dark: #3a6d55; /* derived hover/active shade of --green */
+      --green2: #639376;    /* accents (card accent bar) */
+      --khaki: #D6D1B1;    /* dividers and borders only */
+      --muted: #6d6873;    /* secondary text on light backgrounds (warm gray from --dark) */
+      --shadow: 0 2px 8px rgba(45, 42, 50, 0.12);
+      --shadow-hover: 0 4px 14px rgba(45, 42, 50, 0.18);
     }
     * { box-sizing: border-box; }
+    html, body { margin: 0; }
     body {
-      font-family: Arial, Helvetica, sans-serif;
-      color: var(--ink);
-      background: #ffffff;
-      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--dark);
+      background: var(--cream);
       line-height: 1.6;
       -webkit-text-size-adjust: 100%;
     }
-    .wrap {
+    a { color: var(--green); }
+    p { margin: 0 0 16px; }
+
+    /* Full-bleed section bands (rhythm) with a centered inner column. */
+    .band-cream { background: var(--cream); }
+    .band-white { background: #ffffff; }
+    .band-green { background: var(--green); color: var(--cream); }
+    .band-dark { background: var(--dark); color: var(--cream); }
+    .inner {
       max-width: 680px;
       margin: 0 auto;
-      padding: 32px 20px 48px;
+      padding: 44px 20px;
     }
-    h1, h2 {
-      color: var(--navy);
-      border-bottom: 2px solid var(--navy);
-      padding-bottom: 8px;
-      line-height: 1.2;
-    }
-    h1 { font-size: 2.4rem; margin: 8px 0 4px; }
-    h2 { font-size: 1.3rem; margin: 40px 0 16px; }
-    .tagline {
-      font-size: 1.15rem;
-      color: var(--muted);
-      font-weight: bold;
-      margin: 0 0 24px;
-    }
-    p { margin: 0 0 16px; }
-    a { color: var(--navy); }
 
-    /* Primary call to action */
-    .cta {
-      text-align: center;
-      margin: 24px 0 8px;
+    h2 {
+      color: var(--green);
+      font-size: 1.3rem;
+      line-height: 1.2;
+      margin: 0 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--khaki);
     }
+
+    /* Hero — fills the first mobile screen without scrolling. */
+    .hero {
+      /* IMPORTANT: this background MUST stay exactly #F2EDEB. wordmark.png has a
+         baked-in solid cream (#F2EDEB) background; any other color here would
+         reveal the image's rectangle around the letterforms. */
+      background: var(--cream);
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+    }
+    .hero .inner { text-align: center; }
+    .hero-title { margin: 0 0 6px; }
+    .wordmark {
+      display: block;
+      margin: 0 auto;
+      height: 56px;      /* sized by height (the PNG is 1376x768); max-width is a cap */
+      width: auto;
+      max-width: 320px;
+    }
+    .tagline {
+      color: var(--green);
+      font-weight: bold;
+      font-size: 1.15rem;
+      margin: 0 0 20px;
+    }
+    .pitch { margin: 0 auto 24px; max-width: 520px; }
+
+    /* Call-to-action buttons */
+    .cta { text-align: center; margin: 8px 0; }
     .btn {
       display: inline-block;
-      background: var(--navy);
-      color: #ffffff;
+      background: var(--green);
+      color: var(--cream);
       text-decoration: none;
       font-size: 1.15rem;
       font-weight: bold;
-      padding: 16px 28px;
-      border-radius: 8px;
+      padding: 16px 30px;
+      border-radius: 10px;
       min-width: 280px;
+      max-width: 100%;
+      box-shadow: var(--shadow);
+      transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
     }
-    .btn:hover { background: var(--navy-hover); }
+    .btn:hover { background: var(--green-dark); box-shadow: var(--shadow-hover); }
+    .btn:active { transform: translateY(1px); box-shadow: var(--shadow); }
+    /* Inverse variant for the green closing band (a green button would vanish there). */
+    .btn--inverse { background: var(--cream); color: var(--green); }
+    .btn--inverse:hover { background: #ffffff; }
     .expect {
       text-align: center;
       font-size: 0.9rem;
       color: var(--muted);
-      margin: 12px 0 4px;
+      margin: 12px 0 0;
     }
+    .band-green .expect { color: var(--cream); }
 
     /* Feature list */
-    .features { margin: 0 0 8px; padding-left: 0; list-style: none; }
+    .features { list-style: none; margin: 0; padding: 0; }
     .features li { margin-bottom: 14px; }
-    .features strong { color: var(--navy); }
+    .features strong { color: var(--green); }
 
-    /* Screenshots */
+    /* Screenshots — 2-col mobile / 4-col desktop */
     .shots {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
       gap: 14px;
-      justify-content: center;
-      margin: 8px 0 8px;
     }
     .shots img {
       width: 100%;
-      max-width: 155px;
       height: auto;
-      border: 1px solid var(--rule);
+      border: 1px solid var(--khaki);
       border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+    @media (min-width: 600px) {
+      .shots { grid-template-columns: repeat(4, 1fr); }
     }
 
+    /* "Who it's for" card — white card set off by a khaki border, soft shadow,
+       and a light-green accent bar (reads on the white section). */
     .who {
-      background: var(--yellow-bg);
-      border: 1px solid var(--yellow-border);
-      border-left: 5px solid var(--yellow-border);
-      border-radius: 6px;
+      background: #ffffff;
+      border: 1px solid var(--khaki);
+      border-left: 5px solid var(--green2);
+      border-radius: 8px;
       padding: 16px 18px;
-      margin: 24px 0 8px;
+      box-shadow: var(--shadow);
     }
     .who p:last-child { margin-bottom: 0; }
 
-    footer {
-      margin-top: 48px;
-      padding-top: 16px;
-      border-top: 1px solid var(--rule);
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-    footer a { color: var(--navy); text-decoration: none; }
+    /* Footer (dark band) */
+    footer.band-dark { font-size: 0.9rem; color: var(--khaki); }
+    footer .inner { padding: 26px 20px; }
+    footer a { color: var(--cream); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
-    footer .appname { display: block; margin-top: 10px; }
+    footer .appname { display: block; margin-top: 10px; color: var(--khaki); }
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <h1>Klippa</h1>
-    <p class="tagline">Where lawns happen</p>
+  <section class="hero band-cream">
+    <div class="inner">
+      <h1 class="hero-title"><img class="wordmark" src="wordmark.png" alt="Klippa" width="1376" height="768"></h1>
+      <p class="tagline">Where lawns happen</p>
 
-    <p>Strava for people who mow their own lawn. Track every mow, map your yard once on satellite, build your streak, and prove the work — for the homeowner who mows their own lawn and is proud of it.</p>
+      <p class="pitch">Strava for people who mow their own lawn. Track every mow, map your yard once on satellite, build your streak, and prove the work — for the homeowner who mows their own lawn and is proud of it.</p>
 
-    <div class="cta">
-      <a class="btn" href="https://testflight.apple.com/join/QvBmZysn">Get Klippa on TestFlight&nbsp;&rarr;</a>
-      <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
+      <div class="cta">
+        <a class="btn" href="https://testflight.apple.com/join/QvBmZysn">Get Klippa on TestFlight&nbsp;&rarr;</a>
+        <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
+      </div>
     </div>
+  </section>
 
-    <h2>What you get</h2>
-    <ul class="features">
-      <li><strong>Mow timer &amp; log.</strong> Start and stop the timer for each mow; it records the date, duration, and what you did.</li>
-      <li><strong>Satellite lawn map.</strong> Trace your yard on satellite once, then split it into zones — front, back, side — with areas that sum to your total.</li>
-      <li><strong>Streaks.</strong> Consecutive-week logging, so you can see the run and keep it going.</li>
-      <li><strong>Height of cut &amp; job log.</strong> Record your HOC and the jobs done — mow, trim, edge, blow — per session.</li>
-      <li><strong>Weather on every mow.</strong> Conditions get stamped automatically when you save the mow.</li>
-      <li><strong>Steps &amp; distance.</strong> Pulls how far you walked and your step count from Apple Health for each mow.</li>
-    </ul>
-
-    <div class="shots">
-      <img src="shot-4.png" alt="Tracing a multi-zone lawn on the satellite map" loading="lazy">
-      <img src="shot-1.png" alt="The stats page with lawn area and efficiency" loading="lazy">
-      <img src="shot-2.png" alt="A mow's detail with weather and step count" loading="lazy">
-      <img src="shot-3.png" alt="The mow log of past mows" loading="lazy">
+  <section class="band-white">
+    <div class="inner">
+      <h2>What you get</h2>
+      <ul class="features">
+        <li><strong>Mow timer &amp; log.</strong> Start and stop the timer for each mow; it records the date, duration, and what you did.</li>
+        <li><strong>Satellite lawn map.</strong> Trace your yard on satellite once, then split it into zones — front, back, side — with areas that sum to your total.</li>
+        <li><strong>Streaks.</strong> Consecutive-week logging, so you can see the run and keep it going.</li>
+        <li><strong>Height of cut &amp; job log.</strong> Record your HOC and the jobs done — mow, trim, edge, blow — per session.</li>
+        <li><strong>Weather on every mow.</strong> Conditions get stamped automatically when you save the mow.</li>
+        <li><strong>Steps &amp; distance.</strong> Pulls how far you walked and your step count from Apple Health for each mow.</li>
+      </ul>
     </div>
+  </section>
 
-    <div class="who">
-      <p>Built for the r/lawncare crowd — Bermuda, Zoysia, and the whole summer grind. If you already know your height of cut, this is for you.</p>
+  <section class="band-cream">
+    <div class="inner">
+      <div class="shots">
+        <img src="shot-4.png" alt="Tracing a multi-zone lawn on the satellite map" loading="lazy">
+        <img src="shot-1.png" alt="The stats page with lawn area and efficiency" loading="lazy">
+        <img src="shot-2.png" alt="A mow's detail with weather and step count" loading="lazy">
+        <img src="shot-3.png" alt="The mow log of past mows" loading="lazy">
+      </div>
     </div>
+  </section>
 
-    <div class="cta">
-      <a class="btn" href="https://testflight.apple.com/join/QvBmZysn">Join the beta&nbsp;&rarr;</a>
-      <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
+  <section class="band-white">
+    <div class="inner">
+      <div class="who">
+        <p>Built for the r/lawncare crowd — Bermuda, Zoysia, and the whole summer grind. If you already know your height of cut, this is for you.</p>
+      </div>
     </div>
+  </section>
 
-    <footer>
+  <section class="band-green">
+    <div class="inner">
+      <div class="cta">
+        <a class="btn btn--inverse" href="https://testflight.apple.com/join/QvBmZysn">Join the beta&nbsp;&rarr;</a>
+        <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="band-dark">
+    <div class="inner">
       <a href="index.html">Home</a> | <a href="privacy.html">Privacy Policy</a> | contact: <a href="mailto:klippaapp@gmail.com">klippaapp@gmail.com</a>
       <span class="appname">&ldquo;Klippa Lawn Society&rdquo; on TestFlight (shown as Klippa).</span>
-    </footer>
-  </main>
+    </div>
+  </footer>
 </body>
 </html>
