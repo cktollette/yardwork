@@ -34,24 +34,57 @@ const SQUARE = [
   [2, 2],
   [0, 2],
 ];
+// Same square shifted +10 in longitude → centroid [11, 1].
+const SQUARE_EAST = [
+  [10, 0],
+  [12, 0],
+  [12, 2],
+  [10, 2],
+];
+
+/** Build a property whose zones carry the given vertex rings. */
+function propertyWithZones(...rings: number[][][]) {
+  return {
+    id: 'p1',
+    zones: rings.map((vertices, i) => ({
+      id: `z${i}`,
+      name: 'Lawn',
+      vertices,
+      areaSqFt: 1,
+    })),
+  };
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
   weatherService.getCurrentConditions.mockResolvedValue(WEATHER);
   mowRepository.attachWeather.mockResolvedValue(undefined);
-  propertyRepository.getOrCreateDefault.mockResolvedValue({ id: 'p1', boundary: null });
+  propertyRepository.getOrCreateDefault.mockResolvedValue(propertyWithZones());
   Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
   Location.getLastKnownPositionAsync.mockResolvedValue(null);
 });
 
 describe('captureWeatherForMow', () => {
-  it('uses the lawn centroid when a polygon exists (no location prompt)', async () => {
-    propertyRepository.getOrCreateDefault.mockResolvedValue({ id: 'p1', boundary: SQUARE });
+  it('uses the single-zone centroid, identical to the old single-polygon behavior', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue(propertyWithZones(SQUARE));
 
     await captureWeatherForMow('m1');
 
+    // Same [1, 1] the pre-multi-zone single boundary produced.
     expect(weatherService.getCurrentConditions).toHaveBeenCalledWith(1, 1);
     expect(mowRepository.attachWeather).toHaveBeenCalledWith('m1', WEATHER);
+    expect(Location.getForegroundPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('pools vertices across zones: two zones give a centroid between them', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue(
+      propertyWithZones(SQUARE, SQUARE_EAST),
+    );
+
+    await captureWeatherForMow('m1');
+
+    // Pooled centroid of the two squares ([1,1] and [11,1]) is [6, 1] → lat 1, lon 6.
+    expect(weatherService.getCurrentConditions).toHaveBeenCalledWith(1, 6);
     expect(Location.getForegroundPermissionsAsync).not.toHaveBeenCalled();
   });
 
@@ -67,8 +100,8 @@ describe('captureWeatherForMow', () => {
     expect(mowRepository.attachWeather).toHaveBeenCalledWith('m1', WEATHER);
   });
 
-  it('skips silently when neither polygon nor granted location is available', async () => {
-    // boundary null + permission denied (default beforeEach state).
+  it('skips silently when neither zones nor granted location is available', async () => {
+    // no zones + permission denied (default beforeEach state).
     await captureWeatherForMow('m1');
 
     expect(weatherService.getCurrentConditions).not.toHaveBeenCalled();
@@ -85,7 +118,7 @@ describe('captureWeatherForMow', () => {
   });
 
   it('skips silently when the weather service returns null', async () => {
-    propertyRepository.getOrCreateDefault.mockResolvedValue({ id: 'p1', boundary: SQUARE });
+    propertyRepository.getOrCreateDefault.mockResolvedValue(propertyWithZones(SQUARE));
     weatherService.getCurrentConditions.mockResolvedValue(null);
 
     await captureWeatherForMow('m1');

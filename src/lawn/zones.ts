@@ -1,4 +1,4 @@
-import type { Zone } from '../mow/models';
+import type { Position, Zone } from '../mow/models';
 import { MIGRATED_ZONE_NAME } from './migrateProperty';
 
 /**
@@ -21,4 +21,15 @@ export function defaultZoneName(existingCount: number): string {
  */
 export function totalAreaSqFt(zones: Zone[]): number {
   return zones.reduce((sum, zone) => sum + zone.areaSqFt, 0);
+}
+
+/**
+ * All vertices across all zones, flattened into one list. Used to pick a single
+ * weather point for the whole lawn: pooling every zone's vertices into the
+ * vertex-average centroid puts the point in the middle of the traced area,
+ * whichever zones exist. Empty lawn → empty list (caller falls back to device
+ * location).
+ */
+export function poolZoneVertices(zones: Zone[]): Position[] {
+  return zones.flatMap((zone) => zone.vertices);
 }
