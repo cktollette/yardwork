@@ -18,7 +18,10 @@ async function readArray<T>(key: string): Promise<T[]> {
     const raw = await AsyncStorage.getItem(key);
     if (raw == null) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    // Drop null/non-object elements so a single malformed record can't throw
+    // when a caller dereferences it (matches the mow repo's readArray).
+    return parsed.filter((el) => el != null && typeof el === 'object') as T[];
   } catch {
     return [];
   }
