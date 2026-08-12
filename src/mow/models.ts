@@ -13,24 +13,39 @@ import type { Activity } from '../activity/ActivityService';
 /** A `[longitude, latitude]` coordinate pair, GeoJSON axis order. */
 export type Position = [number, number];
 
-/** A place that gets mowed. A Property has at most one lawn polygon (D-005). */
+/**
+ * One named lawn zone — an independent polygon with its own denormalized area.
+ * A lawn is a set of zones (front yard, back yard, …) whose areas sum to the
+ * total. Replaces the old single `Property.boundary` (v8 restructure).
+ */
+export interface Zone {
+  id: string;
+  /** User-facing label ("Lawn", "Zone 2", …). Editable; not validated. */
+  name: string;
+  /**
+   * Ordered, OPEN ring of vertices (the closing edge back to the first point is
+   * implied, never stored). Same vertex format as the old boundary.
+   */
+  vertices: Position[];
+  /**
+   * Area in square feet, derived from `vertices`. Recomputed on every write and
+   * stored; readers use this value and NEVER recompute from vertices.
+   */
+  areaSqFt: number;
+}
+
+/** A place that gets mowed. A Property has a set of lawn zones (D-005). */
 export interface Property {
   id: string;
   name: string;
   /** epoch ms when the Property was created */
   createdAt: number;
   /**
-   * The lawn boundary as an ordered, OPEN ring of vertices (the closing edge
-   * back to the first point is implied, never stored). `null`/absent means no
-   * polygon has been drawn yet. One polygon per property — saving replaces it.
+   * The lawn as a set of named zones. Total lawn area is the sum of zone areas.
+   * Empty means no lawn has been traced yet. Migrated from the old single
+   * `boundary` at v8: the old polygon becomes a single "Lawn" zone.
    */
-  boundary?: Position[] | null;
-  /**
-   * Lawn area in square feet, derived from `boundary`. Recomputed on every
-   * write and stored; readers use this value and NEVER recompute from boundary.
-   * `null`/absent whenever `boundary` is.
-   */
-  areaSqFt?: number | null;
+  zones: Zone[];
 }
 
 /** A completed, persisted mow. Always tied to exactly one Property (D-005). */
