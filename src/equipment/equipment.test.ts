@@ -25,6 +25,14 @@ describe('displayName', () => {
     expect(displayName(makeEquipment({ nickname: undefined }))).toBe('Toro Recycler 22');
   });
 
+  it('shows the brand alone when the model is absent', () => {
+    expect(displayName(makeEquipment({ nickname: undefined, model: undefined }))).toBe('Toro');
+  });
+
+  it('shows the brand alone when the model is blank', () => {
+    expect(displayName(makeEquipment({ nickname: undefined, model: '   ' }))).toBe('Toro');
+  });
+
   it('treats a whitespace-only nickname as unset', () => {
     expect(displayName(makeEquipment({ nickname: '   ' }))).toBe('Toro Recycler 22');
   });
@@ -39,6 +47,11 @@ describe('normalizeEquipment', () => {
     const n = normalizeEquipment(makeEquipment({ brand: '  Honda ', model: ' HRX217 ' }));
     expect(n.brand).toBe('Honda');
     expect(n.model).toBe('HRX217');
+  });
+
+  it('drops an absent or blank model (model is optional)', () => {
+    expect('model' in normalizeEquipment(makeEquipment({ model: undefined }))).toBe(false);
+    expect('model' in normalizeEquipment(makeEquipment({ model: '   ' }))).toBe(false);
   });
 
   it('drops a blank nickname', () => {

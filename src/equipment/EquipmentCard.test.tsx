@@ -38,6 +38,14 @@ describe('EquipmentCard', () => {
     expect(json).toContain('Toro Recycler 22');
   });
 
+  it('shows the brand alone when the model is absent (no "undefined")', () => {
+    const json = renderJson(
+      <EquipmentCard equipment={makeEquipment({ nickname: undefined, model: undefined })} />,
+    );
+    expect(json).toContain('Toro');
+    expect(json).not.toContain('undefined');
+  });
+
   it('shows a drive-type badge for a mower that has one', () => {
     const json = renderJson(
       <EquipmentCard equipment={makeEquipment({ driveType: 'self_propelled' })} />,

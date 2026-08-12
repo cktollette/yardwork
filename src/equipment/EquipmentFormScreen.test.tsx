@@ -38,11 +38,11 @@ beforeEach(() => {
 });
 
 describe('EquipmentFormScreen validation', () => {
-  it('does not persist and shows an error when required fields are missing', async () => {
+  it('does not persist and shows an error when brand or power source is missing', async () => {
     const tree = renderAddForm();
 
     await act(async () => {
-      // Press Save with an empty brand/model and no power source.
+      // Press Save with an empty brand and no power source (model still optional).
       tree.root.findByProps({ label: 'Save equipment' }).props.onPress();
     });
 
@@ -52,6 +52,29 @@ describe('EquipmentFormScreen validation', () => {
     );
     expect(equipmentRepository.add).not.toHaveBeenCalled();
     expect(navigation.goBack).not.toHaveBeenCalled();
+  });
+
+  it('persists with the model omitted — model is optional at entry', async () => {
+    const tree = renderAddForm();
+
+    act(() => {
+      tree.root.findByProps({ accessibilityLabel: 'Brand' }).props.onChangeText('Honda');
+      // Model deliberately left blank.
+    });
+    act(() => {
+      tree.root.findByProps({ accessibilityLabel: 'Gas' }).props.onPress();
+    });
+
+    await act(async () => {
+      tree.root.findByProps({ label: 'Save equipment' }).props.onPress();
+    });
+
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(equipmentRepository.add).toHaveBeenCalledTimes(1);
+    expect(equipmentRepository.add).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'mower', brand: 'Honda', powerSource: 'gas' }),
+    );
+    expect(navigation.goBack).toHaveBeenCalled();
   });
 
   it('persists when brand, model, and power source are all provided', async () => {
