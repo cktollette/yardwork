@@ -3,11 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Klippa</title>
-  <meta name="description" content="Strava for people who mow their own lawn. Track every mow, map your yard on satellite, build your streak.">
+  <title>Klippa — join the Dallas lawn beta on TestFlight</title>
+  <meta name="description" content="Strava for people who mow their own lawn. Track every mow, map your yard on satellite, build your streak. Now in TestFlight beta for Dallas lawns.">
+
+  <!-- Favicon / home-screen icon -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+
+  <!-- Social share (Open Graph + Twitter) -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://getklippa.com/">
+  <meta property="og:title" content="Klippa — where lawns happen">
+  <meta property="og:description" content="Strava for people who mow their own lawn. Track every mow, map your yard on satellite, build your streak. Now in TestFlight beta for Dallas lawns.">
+  <!-- Interim share image: the app icon. Replace with a proper 1200x630 card (tracked in a chore issue). -->
+  <meta property="og:image" content="https://getklippa.com/favicon.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Klippa — where lawns happen">
+  <meta name="twitter:description" content="Strava for people who mow their own lawn. Now in TestFlight beta for Dallas lawns.">
+  <meta name="twitter:image" content="https://getklippa.com/favicon.png">
+
   <style>
     :root {
       --navy: #1a2f4a;
+      --navy-hover: #24406a;
       --yellow-bg: #fdf3c9;
       --yellow-border: #e6c84a;
       --ink: #1c1c1c;
@@ -44,21 +62,62 @@
     }
     p { margin: 0 0 16px; }
     a { color: var(--navy); }
-    .callout {
+
+    /* Primary call to action */
+    .cta {
+      text-align: center;
+      margin: 24px 0 8px;
+    }
+    .btn {
+      display: inline-block;
+      background: var(--navy);
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 1.15rem;
+      font-weight: bold;
+      padding: 16px 28px;
+      border-radius: 8px;
+      min-width: 280px;
+    }
+    .btn:hover { background: var(--navy-hover); }
+    .expect {
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin: 12px 0 4px;
+    }
+
+    /* Feature list */
+    .features { margin: 0 0 8px; padding-left: 0; list-style: none; }
+    .features li { margin-bottom: 14px; }
+    .features strong { color: var(--navy); }
+
+    /* Screenshots */
+    .shots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      justify-content: center;
+      margin: 8px 0 8px;
+    }
+    .shots img {
+      width: 100%;
+      max-width: 155px;
+      height: auto;
+      border: 1px solid var(--rule);
+      border-radius: 14px;
+    }
+
+    .who {
       background: var(--yellow-bg);
       border: 1px solid var(--yellow-border);
       border-left: 5px solid var(--yellow-border);
       border-radius: 6px;
       padding: 16px 18px;
-      margin: 16px 0;
+      margin: 24px 0 8px;
     }
-    .callout p:last-child { margin-bottom: 0; }
-    .appname {
-      display: block;
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-top: 12px;
-    }
+    .who p:last-child { margin-bottom: 0; }
+
     footer {
       margin-top: 48px;
       padding-top: 16px;
@@ -68,6 +127,7 @@
     }
     footer a { color: var(--navy); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
+    footer .appname { display: block; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -75,16 +135,42 @@
     <h1>Klippa</h1>
     <p class="tagline">Where lawns happen</p>
 
-    <p>Strava for people who mow their own lawn. Track every mow, map your yard once on satellite, build your streak, and prove the work. Built for the homeowner who mows their own lawn and is proud of it.</p>
+    <p>Strava for people who mow their own lawn. Track every mow, map your yard once on satellite, build your streak, and prove the work — for the homeowner who mows their own lawn and is proud of it.</p>
 
-    <h2>Now in beta on TestFlight</h2>
-    <div class="callout">
-      <p>Klippa is in a limited beta for Dallas-area lawns. Email <a href="mailto:klippaapp@gmail.com">klippaapp@gmail.com</a> to join.</p>
+    <div class="cta">
+      <a class="btn" href="https://testflight.apple.com/join/QvBmZysn">Get Klippa on TestFlight&nbsp;&rarr;</a>
+      <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
     </div>
-    <span class="appname">On the App Store as "Klippa Lawn Society".</span>
+
+    <h2>What you get</h2>
+    <ul class="features">
+      <li><strong>Mow timer &amp; log.</strong> Start and stop the timer for each mow; it records the date, duration, and what you did.</li>
+      <li><strong>Satellite lawn map.</strong> Trace your yard on satellite once, then split it into zones — front, back, side — with areas that sum to your total.</li>
+      <li><strong>Streaks.</strong> Consecutive-week logging, so you can see the run and keep it going.</li>
+      <li><strong>Height of cut &amp; job log.</strong> Record your HOC and the jobs done — mow, trim, edge, blow — per session.</li>
+      <li><strong>Weather on every mow.</strong> Conditions get stamped automatically when you save the mow.</li>
+      <li><strong>Steps &amp; distance.</strong> Pulls how far you walked and your step count from Apple Health for each mow.</li>
+    </ul>
+
+    <div class="shots">
+      <img src="shot-4.png" alt="Tracing a multi-zone lawn on the satellite map" loading="lazy">
+      <img src="shot-1.png" alt="The stats page with lawn area and efficiency" loading="lazy">
+      <img src="shot-2.png" alt="A mow's detail with weather and step count" loading="lazy">
+      <img src="shot-3.png" alt="The mow log of past mows" loading="lazy">
+    </div>
+
+    <div class="who">
+      <p>Built for the r/lawncare crowd — Bermuda, Zoysia, and the whole Dallas summer grind. If you already know your height of cut, this is for you.</p>
+    </div>
+
+    <div class="cta">
+      <a class="btn" href="https://testflight.apple.com/join/QvBmZysn">Join the Dallas beta&nbsp;&rarr;</a>
+      <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
+    </div>
 
     <footer>
       <a href="index.html">Home</a> | <a href="privacy.html">Privacy Policy</a> | contact: <a href="mailto:klippaapp@gmail.com">klippaapp@gmail.com</a>
+      <span class="appname">&ldquo;Klippa Lawn Society&rdquo; on TestFlight (shown as Klippa).</span>
     </footer>
   </main>
 </body>
