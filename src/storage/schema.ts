@@ -52,21 +52,37 @@ export const SCHEMA_VERSION = 10;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**
- * Ensure the schema version is stamped, returning the stored version.
+ * Ensure the schema version is stamped at the current version, returning it.
  *
- * First run writes SCHEMA_VERSION and returns it; later runs return whatever
- * is stored. Idempotent and cheap, so repositories call it before every read.
+ * Idempotent and cheap, so repositories call it before every read. The stamp is
+ * (re)written whenever it is missing, unreadable, or BEHIND the code — a fresh
+ * install stamps the current version; a pre-existing install is brought forward.
  *
- * FUTURE MIGRATIONS HOOK IN HERE: when `stored < SCHEMA_VERSION`, run the
- * ordered migration steps between them and then re-stamp. There is deliberately
- * no migration logic yet — only the version stamp and this single seam.
+ * BUG FIXED HERE (migration-chain hang, fix/migration-chain-hang): the previous
+ * version READ the stored stamp but, when it was behind, returned it WITHOUT
+ * re-stamping. So a pre-existing install's marker stuck at its original version
+ * forever even under newer code, and the "run ordered migrations when
+ * stored < SCHEMA_VERSION" seam never actually fired. Every per-PR test seeded a
+ * single fresh version and read it once, so none ever exercised loading a stored
+ * version OLDER than the code — the chain from the oldest supported version was
+ * untested until src/storage/migrationChain.test.ts.
+ *
+ * Data-shape migrations run idempotently ON READ, independent of this marker
+ * (e.g. migrateProperty normalizes v7 `boundary` → v8 `zones` on every property
+ * read). So the load path is already version-tolerant for the DATA; this
+ * function's job is only to keep the marker honest.
+ *
+ * FUTURE-BUMP CONVENTION: every schema bump must be chain-tested from the OLDEST
+ * supported stored version (v7 today), not just from n-1 — see
+ * src/storage/migrationChain.test.ts. Any future migration that is gated on the
+ * stamp (rather than idempotent-on-read) must PERSIST its data transform before
+ * this re-stamp, or add its ordered step here.
  */
 export async function ensureSchemaVersion(): Promise<number> {
   const raw = await AsyncStorage.getItem(SCHEMA_VERSION_KEY);
-  if (raw == null) {
+  const stored = raw == null ? null : Number(raw);
+  if (stored == null || !Number.isFinite(stored) || stored < SCHEMA_VERSION) {
     await AsyncStorage.setItem(SCHEMA_VERSION_KEY, String(SCHEMA_VERSION));
-    return SCHEMA_VERSION;
   }
-  const stored = Number(raw);
-  return Number.isFinite(stored) ? stored : SCHEMA_VERSION;
+  return SCHEMA_VERSION;
 }

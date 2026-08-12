@@ -26,13 +26,20 @@ export const DEFAULT_PROPERTY_NAME = 'My Lawn';
  * Read + JSON-parse an array-valued key, returning [] on missing or corrupt
  * data. Never throws — a bad value must not crash the app; it reads as "empty",
  * matching the defensive style of loadRunningTimer().
+ *
+ * Also drops any null/non-object ELEMENTS. Callers dereference every record
+ * (migrateProperty reads `.id`, the repos `.find(e => e.id === id)`), so a
+ * single malformed element would otherwise throw and — via an un-caught startup
+ * load — hang the app on a blank first screen. Element validation keeps the
+ * "bad value reads as empty" contract at the element level, not just the array.
  */
 async function readArray<T>(key: string): Promise<T[]> {
   try {
     const raw = await AsyncStorage.getItem(key);
     if (raw == null) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((el) => el != null && typeof el === 'object') as T[];
   } catch {
     return [];
   }
