@@ -14,11 +14,17 @@ function okBody(overrides: Record<string, unknown> = {}) {
 const originalFetch = globalThis.fetch;
 const originalKey = process.env[KEY];
 
+beforeEach(() => {
+  // Silence (and capture) the #26 __DEV__ diagnostics.
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+});
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
   if (originalKey === undefined) delete process.env[KEY];
   else process.env[KEY] = originalKey;
   jest.useRealTimers();
+  jest.restoreAllMocks();
   jest.clearAllMocks();
 });
 
@@ -43,6 +49,34 @@ describe('OpenWeatherService', () => {
     expect(url).toContain('units=imperial');
     expect(url).toContain('lat=33.1');
     expect(url).toContain('lon=-96.8');
+  });
+
+  it('logs a [weather] diagnostic with the status code on a non-200 (#26)', async () => {
+    process.env[KEY] = 'test-key';
+    const warnSpy = console.warn as unknown as jest.Mock;
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => okBody(),
+    }) as unknown as typeof fetch;
+
+    await new OpenWeatherService().getCurrentConditions(1, 2);
+
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('[weather]');
+    expect(logged).toContain('non-200');
+    expect(logged).toContain('503');
+  });
+
+  it('logs a [weather] diagnostic when the API key is missing (#26)', async () => {
+    delete process.env[KEY];
+    const warnSpy = console.warn as unknown as jest.Mock;
+
+    expect(await new OpenWeatherService().getCurrentConditions(1, 2)).toBeNull();
+
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('[weather]');
+    expect(logged).toContain('OPENWEATHER_API_KEY');
   });
 
   it('returns null on a non-200 response', async () => {

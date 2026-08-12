@@ -146,7 +146,10 @@ class AsyncStorageMowRepository implements MowRepository {
       const index = mows.findIndex((m) => m.id === id);
       // Silent no-op on a gone record (D-027 idempotent pattern) — the mow may
       // have been deleted between save and this best-effort capture.
-      if (index === -1) return;
+      if (index === -1) {
+        if (__DEV__) console.warn(`[weather] attachWeather no-op: no mow with id ${id}`);
+        return;
+      }
       // Set only the weather field; leave every other field as stored.
       mows[index] = { ...mows[index], weather };
       await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));

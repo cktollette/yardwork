@@ -57,6 +57,7 @@ function propertyWithZones(...rings: number[][][]) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(console, 'warn').mockImplementation(() => {}); // silence #26 diagnostics
   weatherService.getCurrentConditions.mockResolvedValue(WEATHER);
   mowRepository.attachWeather.mockResolvedValue(undefined);
   propertyRepository.getOrCreateDefault.mockResolvedValue(propertyWithZones());
@@ -106,6 +107,16 @@ describe('captureWeatherForMow', () => {
 
     expect(weatherService.getCurrentConditions).not.toHaveBeenCalled();
     expect(mowRepository.attachWeather).not.toHaveBeenCalled();
+  });
+
+  it('logs a [weather] diagnostic when no coordinates can be resolved (#26)', async () => {
+    const warnSpy = console.warn as unknown as jest.Mock;
+
+    await captureWeatherForMow('m1'); // no zones + denied location
+
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('[weather]');
+    expect(logged).toContain('no coordinates');
   });
 
   it('does not re-prompt: an ungranted permission is treated as unavailable', async () => {

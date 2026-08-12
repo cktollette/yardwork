@@ -23,6 +23,11 @@ import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositori
  */
 export const MAX_CAPTURE_AGE_MS = 30 * 60 * 1000;
 
+/** Dev-only diagnostic for the silent null paths (#26). No-op in production. */
+function warn(message: string): void {
+  if (__DEV__) console.warn(`[weather] ${message}`);
+}
+
 /**
  * Resolve a coordinate to fetch weather for:
  *   1. the lawn centroid — the vertex-average of ALL vertices pooled across every
@@ -58,13 +63,19 @@ export async function captureWeatherForMow(
 ): Promise<void> {
   try {
     // Recency guard — never capture for a stale save.
-    if (Date.now() - savedAtMs > MAX_CAPTURE_AGE_MS) return;
+    if (Date.now() - savedAtMs > MAX_CAPTURE_AGE_MS) {
+      warn('skip: save is older than the capture window');
+      return;
+    }
 
     const coords = await resolveCoordinates();
-    if (!coords) return;
+    if (!coords) {
+      warn('skip: no coordinates — no lawn zones and no granted last-known location');
+      return;
+    }
 
     const weather = await weatherService.getCurrentConditions(coords.lat, coords.lon);
-    if (!weather) return;
+    if (!weather) return; // OpenWeatherService already logged the reason
 
     await mowRepository.attachWeather(mowId, weather);
   } catch {
