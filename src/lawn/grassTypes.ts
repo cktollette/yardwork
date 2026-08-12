@@ -7,7 +7,7 @@
  * everywhere. A future GDD (growing-degree-day) cadence feature will read this;
  * nothing computes from it today.
  */
-export const GRASS_TYPES = [
+export const GRASS_TYPES: readonly string[] = [
   'Bermuda',
   'Zoysia',
   'St. Augustine',
@@ -17,4 +17,4 @@ export const GRASS_TYPES = [
   'Kentucky Bluegrass',
   'Ryegrass',
   'Other',
-] as const;
+];

@@ -3,10 +3,12 @@ import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import ChipRow from '../components/ChipRow';
 import { propertyRepository } from '../mow/asyncStorageRepositories';
 import type { Property, Zone } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
 import { colors, spacing, typography } from '../theme';
+import { GRASS_TYPES } from './grassTypes';
 import { hasLawn } from './prompts';
 import { totalAreaSqFt } from './zones';
 
@@ -16,15 +18,17 @@ function formatArea(sqft: number): string {
   return `${Math.round(sqft).toLocaleString()} sq ft`;
 }
 
-/** One editable zone row: rename inline, retrace, or delete. */
+/** One editable zone row: rename inline, set grass type, retrace, or delete. */
 function ZoneRow({
   zone,
   onRename,
+  onSetGrassType,
   onRetrace,
   onDelete,
 }: {
   zone: Zone;
   onRename: (zoneId: string, name: string) => void;
+  onSetGrassType: (zoneId: string, grassType: string | undefined) => void;
   onRetrace: (zoneId: string) => void;
   onDelete: (zoneId: string, name: string) => void;
 }) {
@@ -47,6 +51,18 @@ function ZoneRow({
           {formatArea(zone.areaSqFt)}
         </Text>
       </View>
+
+      <View style={styles.grassField}>
+        <Text style={styles.grassLabel}>Grass type (optional)</Text>
+        <ChipRow
+          options={GRASS_TYPES}
+          selected={zone.grassType}
+          onChange={(value) => onSetGrassType(zone.id, value)}
+          clearable
+          accessibilityLabel={(g) => `Grass type ${g} for ${zone.name}`}
+        />
+      </View>
+
       <View style={styles.rowActions}>
         <Pressable
           onPress={() => onRetrace(zone.id)}
@@ -95,6 +111,15 @@ export default function LawnHomeScreen({ navigation }: Props) {
     async (zoneId: string, name: string) => {
       if (!property) return;
       setProperty(await propertyRepository.updateZone(property.id, zoneId, { name }));
+    },
+    [property],
+  );
+
+  const onSetGrassType = useCallback(
+    async (zoneId: string, grassType: string | undefined) => {
+      if (!property) return;
+      // Present-but-undefined key clears; a value sets it.
+      setProperty(await propertyRepository.updateZone(property.id, zoneId, { grassType }));
     },
     [property],
   );
@@ -150,6 +175,7 @@ export default function LawnHomeScreen({ navigation }: Props) {
               key={zone.id}
               zone={zone}
               onRename={onRename}
+              onSetGrassType={onSetGrassType}
               onRetrace={onRetrace}
               onDelete={onDelete}
             />
@@ -218,6 +244,16 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
+  },
+  grassField: {
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  grassLabel: {
+    fontSize: typography.caption,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   rowActions: {
     flexDirection: 'row',
