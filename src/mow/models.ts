@@ -32,6 +32,12 @@ export interface Zone {
    * stored; readers use this value and NEVER recompute from vertices.
    */
   areaSqFt: number;
+  /**
+   * Optional grass type (from the curated GRASS_TYPES list, "Other" included).
+   * Absent means "not set". Never required, never prompted. Reserved as the
+   * future input to GDD cadence recommendations — nothing computes from it yet.
+   */
+  grassType?: string;
 }
 
 /** A place that gets mowed. A Property has a set of lawn zones (D-005). */

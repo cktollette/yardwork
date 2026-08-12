@@ -25,6 +25,7 @@ describe('migrateProperty', () => {
     expect(zone.name).toBe(MIGRATED_ZONE_NAME);
     expect(zone.vertices).toEqual(SQUARE); // identical, not re-derived
     expect(zone.areaSqFt).toBe(5000); // stored area reused, not recomputed
+    expect('grassType' in zone).toBe(false); // migration never populates grass type
     // Legacy fields do not ride along.
     expect(migrated).not.toHaveProperty('boundary');
     expect(migrated).not.toHaveProperty('areaSqFt');

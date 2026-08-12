@@ -262,6 +262,12 @@ class AsyncStoragePropertyRepository implements PropertyRepository {
           ? { vertices: patch.vertices, areaSqFt: computeAreaSqFt(patch.vertices) }
           : {}),
       };
+      // Grass type: present key sets a value or clears (empty/undefined); an
+      // omitted key leaves it unchanged.
+      if ('grassType' in patch) {
+        if (patch.grassType) updated.grassType = patch.grassType;
+        else delete updated.grassType;
+      }
       const zones = [...p.zones];
       zones[index] = updated;
       return { ...p, zones };
