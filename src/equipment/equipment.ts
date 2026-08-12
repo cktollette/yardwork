@@ -8,14 +8,18 @@ import type { Equipment, EquipmentEdit } from './models';
 
 /**
  * The name to show for a piece of equipment: its nickname when set, otherwise
- * "brand model". Whitespace-only nicknames fall through to brand+model.
+ * "brand model" — or just the brand when the model is absent (it's optional).
+ * Whitespace-only nicknames fall through to brand(+model).
  */
 export function displayName(
   e: Pick<Equipment, 'nickname' | 'brand' | 'model'>,
 ): string {
   const nick = e.nickname?.trim();
   if (nick) return nick;
-  return `${e.brand} ${e.model}`.trim();
+  return [e.brand, e.model]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
 /**
@@ -27,8 +31,13 @@ export function normalizeEquipment(e: Equipment): Equipment {
   const next: Equipment = {
     ...e,
     brand: e.brand.trim(),
-    model: e.model.trim(),
   };
+
+  // Model is optional: keep a trimmed value, drop a blank/absent one so stored
+  // data never carries an empty-string model.
+  const model = e.model?.trim();
+  if (model) next.model = model;
+  else delete next.model;
 
   const nick = e.nickname?.trim();
   if (nick) next.nickname = nick;

@@ -57,7 +57,7 @@ export default function EquipmentFormScreen({ navigation, route }: Props) {
       } else {
         setType(loaded.type);
         setBrand(loaded.brand);
-        setModel(loaded.model);
+        setModel(loaded.model ?? '');
         setNickname(loaded.nickname ?? '');
         setPowerSource(loaded.powerSource);
         setDriveType(loaded.driveType);
@@ -80,11 +80,11 @@ export default function EquipmentFormScreen({ navigation, route }: Props) {
 
     const trimmedBrand = brand.trim();
     const trimmedModel = model.trim();
-    if (!trimmedBrand || !trimmedModel || !powerSource) {
-      Alert.alert(
-        'Missing details',
-        'Add a brand, model, and power source before saving.',
-      );
+    // Model is optional (testers often don't have a model number handy); only
+    // brand and power source block a save. A blank model is dropped by
+    // normalization, so passing it through is safe.
+    if (!trimmedBrand || !powerSource) {
+      Alert.alert('Missing details', 'Add a brand and power source before saving.');
       return;
     }
 
@@ -201,7 +201,7 @@ export default function EquipmentFormScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Model</Text>
+        <Text style={styles.label}>Model (optional)</Text>
         <TextInput
           style={styles.input}
           value={model}

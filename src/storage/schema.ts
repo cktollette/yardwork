@@ -41,7 +41,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //     "Lawn" zone with identical vertices and area. The transform (migrateProperty)
 //     runs idempotently on every property read in the schema-versioned load path
 //     (see src/lawn/migrateProperty.ts). Mow records are untouched by v8.
-export const SCHEMA_VERSION = 8;
+// v9: Equipment.model became OPTIONAL (was a required string) to remove
+//     onboarding friction. Purely additive / backward-compatible — existing
+//     records with a model are still valid and untouched; new records may omit
+//     it, so no data transform runs on upgrade.
+export const SCHEMA_VERSION = 9;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**

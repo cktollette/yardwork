@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from '../storage/schema';
 import { EQUIPMENT_KEY, equipmentRepository } from './asyncStorageRepositories';
+import { displayName } from './equipment';
 import type { NewEquipment } from './models';
 
 // In-memory AsyncStorage mock shipped with the async-storage package.
@@ -46,6 +47,21 @@ describe('EquipmentRepository CRUD', () => {
       makeNewEquipment({ type: 'trimmer', driveType: 'push' }),
     );
     expect('driveType' in saved).toBe(false);
+  });
+
+  it('adds equipment without a model — stores no model key and displays brand alone', async () => {
+    const saved = await equipmentRepository.add(makeNewEquipment({ brand: 'Honda', model: undefined }));
+    expect('model' in saved).toBe(false);
+    expect(displayName(saved)).toBe('Honda');
+
+    const [reloaded] = await equipmentRepository.list();
+    expect('model' in reloaded).toBe(false);
+    expect(displayName(reloaded)).toBe('Honda');
+  });
+
+  it('drops a blank model on add', async () => {
+    const saved = await equipmentRepository.add(makeNewEquipment({ model: '   ' }));
+    expect('model' in saved).toBe(false);
   });
 
   it('finds an item by id and returns null for an unknown id', async () => {

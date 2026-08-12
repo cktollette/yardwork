@@ -15,8 +15,13 @@ export interface Equipment {
   id: string;
   type: EquipmentType;
   brand: string;
-  model: string;
-  /** Optional friendly name; falls back to "brand model" for display. */
+  /**
+   * Model name/number. OPTIONAL (v9): requiring it at entry created onboarding
+   * friction — testers often don't have a model number handy. Absent/blank means
+   * "not provided"; display falls back to brand alone.
+   */
+  model?: string;
+  /** Optional friendly name; falls back to brand (+ model when present). */
   nickname?: string;
   powerSource: PowerSource;
   /**
