@@ -49,7 +49,7 @@ const PROPERTY: Property = {
   id: 'p1',
   name: 'My Lawn',
   createdAt: 0,
-  areaSqFt: 5000,
+  zones: [{ id: 'z1', name: 'Lawn', vertices: [], areaSqFt: 5000 }],
 };
 
 function makeMow(overrides: Partial<Mow>): Mow {
@@ -68,7 +68,7 @@ afterEach(() => jest.clearAllMocks());
 describe('HomeScreen', () => {
   it('shows the cold-start welcome when no mows exist', async () => {
     listMows.mockResolvedValue([]);
-    getProperty.mockResolvedValue({ ...PROPERTY, areaSqFt: undefined });
+    getProperty.mockResolvedValue({ ...PROPERTY, zones: [] });
 
     const json = JSON.stringify((await renderHome()).toJSON());
     expect(json).toContain('Welcome to Klippa');

@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { polygonCentroid } from '../lawn/centroid';
+import { poolZoneVertices } from '../lawn/zones';
 import { weatherService } from './OpenWeatherService';
 import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
 
@@ -22,16 +23,25 @@ import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositori
  */
 export const MAX_CAPTURE_AGE_MS = 30 * 60 * 1000;
 
+/** Dev-only diagnostic for the silent null paths (#26). No-op in production. */
+function warn(message: string): void {
+  if (__DEV__) console.warn(`[weather] ${message}`);
+}
+
 /**
  * Resolve a coordinate to fetch weather for:
- *   1. the lawn polygon centroid, if a boundary exists (no permission needed); else
+ *   1. the lawn centroid — the vertex-average of ALL vertices pooled across every
+ *      zone, so the point sits in the middle of the traced area (no permission
+ *      needed); else
  *   2. the device's last known position, but ONLY if location permission is
  *      already granted — never trigger a new prompt here.
  * Returns null when neither source yields a coordinate.
  */
 async function resolveCoordinates(): Promise<{ lat: number; lon: number } | null> {
   const property = await propertyRepository.getOrCreateDefault();
-  const centroid = property.boundary ? polygonCentroid(property.boundary) : null;
+  // polygonCentroid([]) is null, so a lawn with no zones falls through to
+  // device location unchanged.
+  const centroid = polygonCentroid(poolZoneVertices(property.zones));
   if (centroid) {
     const [lon, lat] = centroid;
     return { lat, lon };
@@ -53,13 +63,19 @@ export async function captureWeatherForMow(
 ): Promise<void> {
   try {
     // Recency guard — never capture for a stale save.
-    if (Date.now() - savedAtMs > MAX_CAPTURE_AGE_MS) return;
+    if (Date.now() - savedAtMs > MAX_CAPTURE_AGE_MS) {
+      warn('skip: save is older than the capture window');
+      return;
+    }
 
     const coords = await resolveCoordinates();
-    if (!coords) return;
+    if (!coords) {
+      warn('skip: no coordinates — no lawn zones and no granted last-known location');
+      return;
+    }
 
     const weather = await weatherService.getCurrentConditions(coords.lat, coords.lon);
-    if (!weather) return;
+    if (!weather) return; // OpenWeatherService already logged the reason
 
     await mowRepository.attachWeather(mowId, weather);
   } catch {

@@ -6,6 +6,7 @@ import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositori
 import type { Property } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
 import { hasLawn } from '../lawn/prompts';
+import { totalAreaSqFt } from '../lawn/zones';
 import { colors, radii, spacing, typography } from '../theme';
 import { formatHoc } from '../mow/hoc';
 import {
@@ -52,7 +53,9 @@ export default function StatsScreen({ navigation }: Props) {
         // The lawn area (once drawn) unlocks the area-based stats; until then
         // it's null and those stats stay gated behind "Draw your lawn".
         setStats(
-          deriveStats(mows, { areaSqFt: prop.areaSqFt ?? null, now: Date.now() }),
+          // Total lawn area = sum of zone areas; 0 (no zones) reads as "no
+          // polygon" inside deriveStats and keeps the area stats gated.
+          deriveStats(mows, { areaSqFt: totalAreaSqFt(prop.zones), now: Date.now() }),
         );
       });
       return () => {
@@ -64,7 +67,7 @@ export default function StatsScreen({ navigation }: Props) {
   // First read in flight: render nothing rather than a flash of empty stats.
   if (stats === null || property === null) return <View style={styles.container} />;
 
-  const lawnDrawn = hasLawn(property.boundary);
+  const lawnDrawn = hasLawn(property.zones);
 
   const averagesLocked = stats.avgDaysBetweenMows === null;
   const remainingForAverages = Math.max(0, MIN_MOWS_FOR_AVERAGES - stats.lifetimeMows);
@@ -77,18 +80,14 @@ export default function StatsScreen({ navigation }: Props) {
           <>
             <StatRow
               label="Area"
-              value={`${Math.round(property.areaSqFt as number).toLocaleString()} sq ft`}
+              value={`${Math.round(totalAreaSqFt(property.zones)).toLocaleString()} sq ft`}
             />
             <Pressable
-              onPress={() =>
-                navigation.navigate('LawnDraw', {
-                  propertyId: property.id,
-                  mode: 'edit',
-                })
-              }
+              // A lawn now has multiple zones; edit them on the Lawn tab.
+              onPress={() => navigation.navigate('Lawn')}
               accessibilityRole="button"
             >
-              <Text style={styles.lawnLink}>Edit lawn</Text>
+              <Text style={styles.lawnLink}>Manage zones</Text>
             </Pressable>
           </>
         ) : (

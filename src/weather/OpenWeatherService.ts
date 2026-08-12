@@ -14,6 +14,11 @@ const ENDPOINT = 'https://api.openweathermap.org/data/2.5/weather';
 /** Abort the request if OpenWeather hasn't answered within this budget. */
 const TIMEOUT_MS = 5000;
 
+/** Dev-only diagnostic for the silent null paths (#26). No-op in production. */
+function warn(message: string): void {
+  if (__DEV__) console.warn(`[weather] ${message}`);
+}
+
 /** Parse OpenWeather's `/weather` body into our `Weather`, or null if malformed. */
 function parseConditions(data: unknown): Weather | null {
   if (typeof data !== 'object' || data === null) return null;
@@ -38,7 +43,10 @@ function parseConditions(data: unknown): Weather | null {
 export class OpenWeatherService implements WeatherService {
   async getCurrentConditions(lat: number, lon: number): Promise<Weather | null> {
     const apiKey = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY;
-    if (!apiKey) return null;
+    if (!apiKey) {
+      warn('skip: no EXPO_PUBLIC_OPENWEATHER_API_KEY set');
+      return null;
+    }
 
     // Bound the request so a hung network can never stall a capture.
     const controller = new AbortController();
@@ -47,11 +55,19 @@ export class OpenWeatherService implements WeatherService {
       const url =
         `${ENDPOINT}?lat=${lat}&lon=${lon}&units=imperial&appid=${apiKey}`;
       const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        warn(`skip: non-200 response (${res.status})`);
+        return null;
+      }
       const data = await res.json();
-      return parseConditions(data);
-    } catch {
+      const parsed = parseConditions(data);
+      if (!parsed) warn('skip: malformed response body');
+      return parsed;
+    } catch (error) {
       // Timeout (abort), network rejection, or a non-JSON body all land here.
+      const e = error as { name?: string; message?: string } | null;
+      if (e?.name === 'AbortError') warn(`skip: timed out after ${TIMEOUT_MS}ms`);
+      else warn(`skip: request failed — ${e?.name ?? 'Error'}: ${e?.message ?? String(error)}`);
       return null;
     } finally {
       clearTimeout(timer);

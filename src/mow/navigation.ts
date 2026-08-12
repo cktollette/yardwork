@@ -33,10 +33,11 @@ export type RootStackParamList = {
   /** Edit or delete a single logged mow, loaded by id. */
   MowDetail: { mowId: string };
   /**
-   * Draw or edit the lawn polygon for a Property. `create` starts empty;
-   * `edit` preloads the property's existing boundary. One polygon per property.
+   * Draw or edit a lawn zone for a Property. `create` starts empty and adds a
+   * new zone; `edit` preloads the zone named by `zoneId` and writes back to it.
+   * `zoneId` is required for `edit` and ignored for `create`.
    */
-  LawnDraw: { propertyId: string; mode: 'create' | 'edit' };
+  LawnDraw: { propertyId: string; mode: 'create' | 'edit'; zoneId?: string };
   /** The equipment garage: a list of the user's equipment (reached from Lawn). */
   Garage: undefined;
   /** Add (no id) or edit (id supplied) a piece of equipment. */

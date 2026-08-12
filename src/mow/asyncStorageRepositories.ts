@@ -1,13 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { computeAreaSqFt } from '../lawn/area';
+import { migrateProperty } from '../lawn/migrateProperty';
+import { defaultZoneName } from '../lawn/zones';
 import { applyMowEdit } from './editMow';
 import type { MowEdit } from './editMow';
 import { generateId } from './id';
-import type { Mow, NewMow, Position, Property } from './models';
+import type { Mow, NewMow, Position, Property, Zone } from './models';
 import {
   MIN_BOUNDARY_VERTICES,
   type MowRepository,
   type PropertyRepository,
+  type ZoneEdit,
 } from './repositories';
 import { ensureSchemaVersion } from '../storage/schema';
 import type { Weather } from '../weather/WeatherService';
@@ -143,7 +146,10 @@ class AsyncStorageMowRepository implements MowRepository {
       const index = mows.findIndex((m) => m.id === id);
       // Silent no-op on a gone record (D-027 idempotent pattern) — the mow may
       // have been deleted between save and this best-effort capture.
-      if (index === -1) return;
+      if (index === -1) {
+        if (__DEV__) console.warn(`[weather] attachWeather no-op: no mow with id ${id}`);
+        return;
+      }
       // Set only the weather field; leave every other field as stored.
       mows[index] = { ...mows[index], weather };
       await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
@@ -166,66 +172,131 @@ class AsyncStorageMowRepository implements MowRepository {
 }
 
 class AsyncStoragePropertyRepository implements PropertyRepository {
-  async getOrCreateDefault(): Promise<Property> {
+  /**
+   * Serialize mutations so concurrent zone writes can't lose updates — the same
+   * promise-chain mutex the mow repo uses. The property repo previously had
+   * none, which was fine for one boundary but is a lost-update risk now that a
+   * lawn holds multiple independently-edited zones.
+   */
+  private mutations: Promise<unknown> = Promise.resolve();
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.mutations.then(task, task);
+    this.mutations = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  /**
+   * Read all properties, each normalized to the current v8 `zones` shape via
+   * migrateProperty. This is the schema-versioned load path: idempotent, so v7
+   * single-boundary records are transformed in memory on every read until the
+   * next write persists the v8 shape.
+   */
+  private async loadProperties(): Promise<Property[]> {
     await ensureSchemaVersion();
-    const properties = await readArray<Property>(PROPERTIES_KEY);
-    if (properties.length > 0) return properties[0];
-    const property: Property = {
-      id: generateId(),
-      name: DEFAULT_PROPERTY_NAME,
-      createdAt: Date.now(),
-    };
-    await AsyncStorage.setItem(PROPERTIES_KEY, JSON.stringify([property]));
-    return property;
+    const raw = await readArray<Property>(PROPERTIES_KEY);
+    return raw.map(migrateProperty);
+  }
+
+  async getOrCreateDefault(): Promise<Property> {
+    return this.enqueue(async () => {
+      const properties = await this.loadProperties();
+      if (properties.length > 0) return properties[0];
+      const property: Property = {
+        id: generateId(),
+        name: DEFAULT_PROPERTY_NAME,
+        createdAt: Date.now(),
+        zones: [],
+      };
+      await AsyncStorage.setItem(PROPERTIES_KEY, JSON.stringify([property]));
+      return property;
+    });
   }
 
   async getById(id: string): Promise<Property | null> {
-    await ensureSchemaVersion();
-    const properties = await readArray<Property>(PROPERTIES_KEY);
+    const properties = await this.loadProperties();
     return properties.find((p) => p.id === id) ?? null;
   }
 
-  async saveBoundary(propertyId: string, boundary: Position[]): Promise<Property> {
-    // Not a polygon below the minimum — reject before any write so a bad call
-    // leaves stored data untouched.
-    if (boundary.length < MIN_BOUNDARY_VERTICES) {
-      throw new Error(
-        `A lawn boundary needs at least ${MIN_BOUNDARY_VERTICES} vertices`,
-      );
+  async addZone(
+    propertyId: string,
+    input: { name?: string; vertices: Position[] },
+  ): Promise<Property> {
+    // Not a polygon below the minimum — reject before any write.
+    if (input.vertices.length < MIN_BOUNDARY_VERTICES) {
+      throw new Error(`A lawn zone needs at least ${MIN_BOUNDARY_VERTICES} vertices`);
     }
-    // Recompute area on write and store it (D-005: read the stored number,
-    // never recompute from boundary).
-    const areaSqFt = computeAreaSqFt(boundary);
-    return this.updateProperty(propertyId, (p) => ({ ...p, boundary, areaSqFt }));
+    return this.updateProperty(propertyId, (p) => {
+      const zone: Zone = {
+        id: generateId(),
+        name: input.name ?? defaultZoneName(p.zones.length),
+        vertices: input.vertices,
+        // Recompute area on write and store it; readers never recompute.
+        areaSqFt: computeAreaSqFt(input.vertices),
+      };
+      return { ...p, zones: [...p.zones, zone] };
+    });
   }
 
-  async clearBoundary(propertyId: string): Promise<Property> {
+  async updateZone(
+    propertyId: string,
+    zoneId: string,
+    patch: ZoneEdit,
+  ): Promise<Property> {
+    if (patch.vertices && patch.vertices.length < MIN_BOUNDARY_VERTICES) {
+      throw new Error(`A lawn zone needs at least ${MIN_BOUNDARY_VERTICES} vertices`);
+    }
+    return this.updateProperty(propertyId, (p) => {
+      const index = p.zones.findIndex((z) => z.id === zoneId);
+      if (index === -1) {
+        throw new Error(`No zone with id ${zoneId}`);
+      }
+      const current = p.zones[index];
+      const updated: Zone = {
+        ...current,
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.vertices !== undefined
+          ? { vertices: patch.vertices, areaSqFt: computeAreaSqFt(patch.vertices) }
+          : {}),
+      };
+      const zones = [...p.zones];
+      zones[index] = updated;
+      return { ...p, zones };
+    });
+  }
+
+  async deleteZone(propertyId: string, zoneId: string): Promise<Property> {
+    // Idempotent: filtering a missing id is a harmless no-op. Removing the last
+    // zone leaves zones: [] — a valid empty lawn.
     return this.updateProperty(propertyId, (p) => ({
       ...p,
-      boundary: null,
-      areaSqFt: null,
+      zones: p.zones.filter((z) => z.id !== zoneId),
     }));
   }
 
   /**
-   * Load the property list, replace the one matching `id` via `mutate`, write
-   * the list back, and return the updated Property. Throws if `id` is unknown —
-   * a boundary can't hang off a property that doesn't exist (D-005).
+   * Serialized load-modify-write of one property. Reads the migrated list,
+   * applies `mutate` to the matching property, writes back. Throws if `id` is
+   * unknown — a zone can't hang off a property that doesn't exist (D-005).
    */
-  private async updateProperty(
+  private updateProperty(
     id: string,
     mutate: (p: Property) => Property,
   ): Promise<Property> {
-    await ensureSchemaVersion();
-    const properties = await readArray<Property>(PROPERTIES_KEY);
-    const index = properties.findIndex((p) => p.id === id);
-    if (index === -1) {
-      throw new Error(`No property with id ${id}`);
-    }
-    const updated = mutate(properties[index]);
-    properties[index] = updated;
-    await AsyncStorage.setItem(PROPERTIES_KEY, JSON.stringify(properties));
-    return updated;
+    return this.enqueue(async () => {
+      const properties = await this.loadProperties();
+      const index = properties.findIndex((p) => p.id === id);
+      if (index === -1) {
+        throw new Error(`No property with id ${id}`);
+      }
+      const updated = mutate(properties[index]);
+      properties[index] = updated;
+      await AsyncStorage.setItem(PROPERTIES_KEY, JSON.stringify(properties));
+      return updated;
+    });
   }
 }
 

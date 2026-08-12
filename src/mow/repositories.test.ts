@@ -2,10 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   DEFAULT_PROPERTY_NAME,
   MOWS_KEY,
+  PROPERTIES_KEY,
   mowRepository,
   propertyRepository,
 } from './asyncStorageRepositories';
-import type { NewMow, Position } from './models';
+import type { Mow, NewMow, Position } from './models';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY } from '../storage/schema';
 
 // In-memory AsyncStorage mock shipped with the async-storage package.
@@ -229,11 +230,12 @@ describe('MowRepository.delete', () => {
 });
 
 describe('PropertyRepository.getOrCreateDefault', () => {
-  it('creates a default "My Lawn" Property on first call', async () => {
+  it('creates a default "My Lawn" Property with no zones on first call', async () => {
     const property = await propertyRepository.getOrCreateDefault();
     expect(property.name).toBe(DEFAULT_PROPERTY_NAME);
     expect(property.id).toEqual(expect.any(String));
     expect(property.createdAt).toEqual(expect.any(Number));
+    expect(property.zones).toEqual([]);
   });
 
   it('is idempotent: calling twice returns the same Property', async () => {
@@ -243,77 +245,145 @@ describe('PropertyRepository.getOrCreateDefault', () => {
   });
 });
 
-describe('PropertyRepository lawn boundary', () => {
+describe('PropertyRepository zones', () => {
   // A small triangle — the minimum valid polygon.
   const TRIANGLE: Position[] = [
     [0, 0],
     [0.001, 0],
     [0, 0.001],
   ];
+  const SQUARE: Position[] = [
+    [0, 0],
+    [0.002, 0],
+    [0.002, 0.002],
+    [0, 0.002],
+  ];
 
-  it('saves a boundary and stores a positive computed area', async () => {
+  it('adds a zone with a computed area and the default first name "Lawn"', async () => {
     const { id } = await propertyRepository.getOrCreateDefault();
-    const updated = await propertyRepository.saveBoundary(id, TRIANGLE);
+    const updated = await propertyRepository.addZone(id, { vertices: TRIANGLE });
 
-    expect(updated.boundary).toEqual(TRIANGLE);
-    expect(updated.areaSqFt).toBeGreaterThan(0);
+    expect(updated.zones).toHaveLength(1);
+    const [zone] = updated.zones;
+    expect(zone.name).toBe('Lawn');
+    expect(zone.vertices).toEqual(TRIANGLE);
+    expect(zone.areaSqFt).toBeGreaterThan(0);
 
     // Persisted, not just returned.
     const reloaded = await propertyRepository.getById(id);
-    expect(reloaded?.boundary).toEqual(TRIANGLE);
-    expect(reloaded?.areaSqFt).toBe(updated.areaSqFt);
+    expect(reloaded?.zones).toEqual(updated.zones);
   });
 
-  it('replaces the existing polygon rather than adding one (one per property)', async () => {
+  it('names subsequent zones "Zone 2", "Zone 3", … and keeps prior zones', async () => {
     const { id } = await propertyRepository.getOrCreateDefault();
-    await propertyRepository.saveBoundary(id, TRIANGLE);
+    await propertyRepository.addZone(id, { vertices: TRIANGLE });
+    const two = await propertyRepository.addZone(id, { vertices: SQUARE });
+    const three = await propertyRepository.addZone(id, { vertices: TRIANGLE, name: 'Side' });
 
-    const bigger: Position[] = [
-      [0, 0],
-      [0.002, 0],
-      [0.002, 0.002],
-      [0, 0.002],
-    ];
-    const updated = await propertyRepository.saveBoundary(id, bigger);
-
-    expect(updated.boundary).toEqual(bigger);
-    // Still exactly one Property; the boundary was swapped, not appended.
-    const reloaded = await propertyRepository.getById(id);
-    expect(reloaded?.boundary).toEqual(bigger);
+    expect(two.zones.map((z) => z.name)).toEqual(['Lawn', 'Zone 2']);
+    expect(three.zones.map((z) => z.name)).toEqual(['Lawn', 'Zone 2', 'Side']);
   });
 
-  it('rejects a boundary with fewer than 3 vertices and writes nothing', async () => {
-    const { id, areaSqFt } = await propertyRepository.getOrCreateDefault();
-    expect(areaSqFt ?? null).toBeNull();
+  it('updates a zone name and re-traces vertices, recomputing area', async () => {
+    const { id } = await propertyRepository.getOrCreateDefault();
+    const added = await propertyRepository.addZone(id, { vertices: TRIANGLE });
+    const zoneId = added.zones[0].id;
+    const smallArea = added.zones[0].areaSqFt;
+
+    const renamed = await propertyRepository.updateZone(id, zoneId, { name: 'Back' });
+    expect(renamed.zones[0].name).toBe('Back');
+    expect(renamed.zones[0].vertices).toEqual(TRIANGLE); // unchanged
+    expect(renamed.zones[0].areaSqFt).toBe(smallArea);
+
+    const retraced = await propertyRepository.updateZone(id, zoneId, { vertices: SQUARE });
+    expect(retraced.zones[0].vertices).toEqual(SQUARE);
+    expect(retraced.zones[0].areaSqFt).toBeGreaterThan(smallArea);
+    expect(retraced.zones[0].name).toBe('Back'); // preserved
+  });
+
+  it('rejects a zone with fewer than 3 vertices and writes nothing', async () => {
+    const { id } = await propertyRepository.getOrCreateDefault();
 
     await expect(
-      propertyRepository.saveBoundary(id, [[0, 0], [1, 1]]),
+      propertyRepository.addZone(id, { vertices: [[0, 0], [1, 1]] }),
     ).rejects.toThrow(/at least 3/);
 
-    const reloaded = await propertyRepository.getById(id);
-    expect(reloaded?.boundary ?? null).toBeNull();
+    expect((await propertyRepository.getById(id))?.zones).toEqual([]);
   });
 
-  it('rejects saving to an unknown property id', async () => {
-    await expect(
-      propertyRepository.saveBoundary('nope', TRIANGLE),
-    ).rejects.toThrow(/nope/);
-  });
-
-  it('clears a boundary back to null area', async () => {
+  it('rejects add/update against an unknown property or zone id', async () => {
     const { id } = await propertyRepository.getOrCreateDefault();
-    await propertyRepository.saveBoundary(id, TRIANGLE);
+    await expect(
+      propertyRepository.addZone('nope', { vertices: TRIANGLE }),
+    ).rejects.toThrow(/nope/);
+    await expect(
+      propertyRepository.updateZone(id, 'ghost', { name: 'x' }),
+    ).rejects.toThrow(/ghost/);
+  });
 
-    const cleared = await propertyRepository.clearBoundary(id);
-    expect(cleared.boundary).toBeNull();
-    expect(cleared.areaSqFt).toBeNull();
+  it('deletes a zone, and deleting the last one leaves a valid empty lawn', async () => {
+    const { id } = await propertyRepository.getOrCreateDefault();
+    const added = await propertyRepository.addZone(id, { vertices: TRIANGLE });
+    const zoneId = added.zones[0].id;
 
-    const reloaded = await propertyRepository.getById(id);
-    expect(reloaded?.boundary).toBeNull();
+    // Idempotent: deleting an unknown id is a no-op, not an error.
+    const noop = await propertyRepository.deleteZone(id, 'ghost');
+    expect(noop.zones).toHaveLength(1);
+
+    const emptied = await propertyRepository.deleteZone(id, zoneId);
+    expect(emptied.zones).toEqual([]);
+    expect((await propertyRepository.getById(id))?.zones).toEqual([]);
   });
 
   it('returns null from getById for an unknown id', async () => {
     expect(await propertyRepository.getById('missing')).toBeNull();
+  });
+});
+
+describe('PropertyRepository — v7→v8 migration on load', () => {
+  const SQUARE: Position[] = [
+    [0, 0],
+    [0.001, 0],
+    [0.001, 0.001],
+    [0, 0.001],
+  ];
+
+  it('loads a stored v7 single-boundary property as one "Lawn" zone', async () => {
+    // Seed a raw pre-migration record (boundary + areaSqFt, no zones).
+    const legacy = {
+      id: 'prop-legacy',
+      name: 'My Lawn',
+      createdAt: 1_700_000_000_000,
+      boundary: SQUARE,
+      areaSqFt: 4321,
+    };
+    await AsyncStorage.setItem(PROPERTIES_KEY, JSON.stringify([legacy]));
+
+    const loaded = await propertyRepository.getById('prop-legacy');
+    expect(loaded?.zones).toHaveLength(1);
+    expect(loaded?.zones[0].name).toBe('Lawn');
+    expect(loaded?.zones[0].vertices).toEqual(SQUARE);
+    expect(loaded?.zones[0].areaSqFt).toBe(4321); // stored area preserved
+    expect(loaded).not.toHaveProperty('boundary');
+  });
+
+  it('leaves v7 mow records (weather + activity) untouched by the property migration', async () => {
+    const startedAt = 1_700_000_000_000;
+    const legacyMow: Mow = {
+      id: 'mow-legacy',
+      propertyId: 'prop-legacy',
+      startedAt,
+      endedAt: startedAt + 1800 * 1000,
+      durationSeconds: 1800,
+      weather: { tempF: 70, condition: 'Clear', humidity: 40, capturedAt: 'x' },
+      activity: { steps: 100, distanceMi: 0.1, capturedAt: 'x' },
+    };
+    await AsyncStorage.setItem(MOWS_KEY, JSON.stringify([legacyMow]));
+
+    // Touch the property migration path, then read the mow back.
+    await propertyRepository.getOrCreateDefault();
+    const [mow] = await mowRepository.listMows();
+    expect(mow).toEqual(legacyMow);
   });
 });
 

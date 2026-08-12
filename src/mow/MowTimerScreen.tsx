@@ -58,7 +58,7 @@ export default function MowTimerScreen({ navigation }: Props) {
       if (!active) return;
       if (
         !shouldShowOnboarding({
-          hasBoundary: hasLawn(property.boundary),
+          hasBoundary: hasLawn(property.zones),
           dismissed,
         })
       ) {

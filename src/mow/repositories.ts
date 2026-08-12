@@ -47,30 +47,45 @@ export interface MowRepository {
   attachActivity(id: string, activity: Activity): Promise<void>;
 }
 
-/** The fewest vertices that form a polygon. Enforced on write; see saveBoundary. */
+/** The fewest vertices that form a polygon. Enforced on every zone write. */
 export const MIN_BOUNDARY_VERTICES = 3;
+
+/** A zone edit: rename, re-trace, or both. Omitted keys are left unchanged. */
+export interface ZoneEdit {
+  name?: string;
+  vertices?: Position[];
+}
 
 /** Persistence boundary for properties. See MowRepository for the swap rationale. */
 export interface PropertyRepository {
   /**
-   * Return the default Property, creating one named "My Lawn" if none exists.
-   * Idempotent: repeated calls return the same Property.
+   * Return the default Property, creating one named "My Lawn" (with no zones) if
+   * none exists. Idempotent: repeated calls return the same Property.
    */
   getOrCreateDefault(): Promise<Property>;
   /** A single Property by id, or null if none exists. */
   getById(id: string): Promise<Property | null>;
   /**
-   * Persist the lawn boundary for a Property, replacing any existing polygon
-   * (one polygon per property, D-005). The area is recomputed from `boundary`
-   * and stored alongside it — callers read the stored area, never recompute.
-   *
-   * Rejects if the Property doesn't exist, or if `boundary` has fewer than
-   * MIN_BOUNDARY_VERTICES points (not a polygon). Returns the updated Property.
+   * Add a new lawn zone. The area is computed from `vertices` and stored on the
+   * zone; the name defaults ("Lawn" for the first zone, "Zone N" after) when
+   * omitted. Rejects if the Property doesn't exist, or if `vertices` has fewer
+   * than MIN_BOUNDARY_VERTICES points. Returns the updated Property.
    */
-  saveBoundary(propertyId: string, boundary: Position[]): Promise<Property>;
+  addZone(
+    propertyId: string,
+    input: { name?: string; vertices: Position[] },
+  ): Promise<Property>;
   /**
-   * Remove the lawn boundary (and its stored area) from a Property, returning
-   * the updated Property. A no-op on a Property that has no polygon.
+   * Edit a zone's name and/or vertices. When vertices change, the zone's area is
+   * recomputed and stored. Rejects if the Property doesn't exist, the zone id is
+   * unknown, or new `vertices` (when present) have fewer than
+   * MIN_BOUNDARY_VERTICES points. Returns the updated Property.
    */
-  clearBoundary(propertyId: string): Promise<Property>;
+  updateZone(propertyId: string, zoneId: string, patch: ZoneEdit): Promise<Property>;
+  /**
+   * Remove a zone from a Property, returning the updated Property. Idempotent:
+   * a no-op (no error) when the zone id doesn't exist. Removing the last zone
+   * leaves a valid empty lawn (`zones: []`).
+   */
+  deleteZone(propertyId: string, zoneId: string): Promise<Property>;
 }

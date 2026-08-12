@@ -35,7 +35,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //     captured best-effort from HealthKit for the timer window. Purely additive —
 //     absent reads as "no activity captured", so no data transform runs; v6
 //     records (with or without weather) load cleanly.
-export const SCHEMA_VERSION = 7;
+// v8: Property restructured from a single `boundary` (+ `areaSqFt`) into a set of
+//     named `zones` (multi-zone lawn). This one is NOT purely additive — it is a
+//     RESHAPE, so it needs a real transform: the old polygon becomes a single
+//     "Lawn" zone with identical vertices and area. The transform (migrateProperty)
+//     runs idempotently on every property read in the schema-versioned load path
+//     (see src/lawn/migrateProperty.ts). Mow records are untouched by v8.
+export const SCHEMA_VERSION = 8;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**
