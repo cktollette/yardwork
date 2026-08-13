@@ -73,6 +73,14 @@ export interface Mow {
    */
   hocInches?: number;
   /**
+   * Optional count of clippings bags collected (whole number, 0–20). Absent
+   * means "not recorded"; a recorded `0` is a valid, distinct value (mulched and
+   * bagged nothing). Entered at save time and freely editable — this is a
+   * save-time field, NOT capture-only provenance like weather/activity, so an
+   * edit may change or clear it. See src/mow/bags.ts.
+   */
+  clippingBags?: number;
+  /**
    * Job types performed on this mow (mow / trim / edge / blow). Absent/empty
    * means none. These are plain enum VALUES, not references to Equipment
    * entities (D-037): job history records what was done and is deliberately

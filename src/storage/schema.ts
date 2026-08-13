@@ -48,7 +48,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // v10: Zone gained optional `grassType` (curated list, per zone). Purely
 //     additive — absent reads as "not set", so no data transform runs; v8/v9
 //     zones load cleanly and the v7→v8 migration does not populate it.
-export const SCHEMA_VERSION = 10;
+// v11: Mow gained optional `clippingBags` (count of clippings bags collected,
+//     0–20). Purely additive — absent reads as "not recorded", so no data
+//     transform runs on upgrade; older records without the field load cleanly.
+export const SCHEMA_VERSION = 11;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**

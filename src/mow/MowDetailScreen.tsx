@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker, {
-  type DateTimePickerEvent,
+  type DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import Button from '../components/Button';
 import type { EquipmentType } from '../equipment/models';
@@ -18,6 +18,7 @@ import { mowRepository } from './asyncStorageRepositories';
 import { formatDateField, formatTimeField, parseDateTimeField } from './datetimeField';
 import { formatMowDate } from './format';
 import HocField from './HocField';
+import BagsField from './BagsField';
 import ToolTypePicker from './ToolTypePicker';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
@@ -54,6 +55,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   const [minutesField, setMinutesField] = useState('');
   const [notes, setNotes] = useState('');
   const [hocInches, setHocInches] = useState<number | undefined>(undefined);
+  const [clippingBags, setClippingBags] = useState<number | undefined>(undefined);
   const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
   const [busy, setBusy] = useState(false);
   // The mow's job types as loaded, for diffing on save so an untouched selection
@@ -73,6 +75,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         setMinutesField(String(Math.round(loaded.durationSeconds / 60)));
         setNotes(loaded.notes ?? '');
         setHocInches(loaded.hocInches);
+        setClippingBags(loaded.clippingBags);
         const loadedTools = loaded.toolTypes ?? [];
         setToolTypes(loadedTools);
         initialToolsRef.current = loadedTools;
@@ -91,12 +94,13 @@ export default function MowDetailScreen({ navigation, route }: Props) {
 
   // Pickers write back into the same string state the text fields used, so the
   // save/diff path and the stored format are unchanged. Date mode only touches
-  // the date part; time mode only the time part.
-  const onChangeDate = useCallback((_event: DateTimePickerEvent, selected?: Date) => {
-    if (selected) setDateField(formatDateField(selected.getTime()));
+  // the date part; time mode only the time part. onValueChange fires only on an
+  // actual selection, so `selected` is always present (no dismiss guard needed).
+  const onValueChangeDate = useCallback((_event: DateTimePickerChangeEvent, selected: Date) => {
+    setDateField(formatDateField(selected.getTime()));
   }, []);
-  const onChangeTime = useCallback((_event: DateTimePickerEvent, selected?: Date) => {
-    if (selected) setTimeField(formatTimeField(selected.getTime()));
+  const onValueChangeTime = useCallback((_event: DateTimePickerChangeEvent, selected: Date) => {
+    setTimeField(formatTimeField(selected.getTime()));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -136,6 +140,11 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       patch.hocInches = hocInches;
     }
 
+    // Only include bags when it actually changed; undefined clears, 0 is a value.
+    if (clippingBags !== mow.clippingBags) {
+      patch.clippingBags = clippingBags;
+    }
+
     // Only include tools when the selection actually changed.
     if (!sameTypes(toolTypes, initialToolsRef.current)) {
       patch.toolTypes = toolTypes;
@@ -154,7 +163,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       setBusy(false);
       Alert.alert("Couldn't save changes", 'Please check the values and try again.');
     }
-  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, toolTypes, navigation]);
+  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, clippingBags, toolTypes, navigation]);
 
   const handleDelete = useCallback(() => {
     if (!mow || busy) return;
@@ -198,7 +207,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={new Date(parseDateTimeField(dateField, timeField) ?? mow.startedAt)}
           mode="date"
           display={Platform.OS === 'ios' ? 'compact' : 'default'}
-          onChange={onChangeDate}
+          onValueChange={onValueChangeDate}
           testID="mow-date-picker"
           accessibilityLabel="Mow date"
         />
@@ -210,7 +219,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={new Date(parseDateTimeField(dateField, timeField) ?? mow.startedAt)}
           mode="time"
           display={Platform.OS === 'ios' ? 'compact' : 'default'}
-          onChange={onChangeTime}
+          onValueChange={onValueChangeTime}
           testID="mow-time-picker"
           accessibilityLabel="Mow start time"
         />
@@ -251,6 +260,8 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       )}
 
       <HocField value={hocInches} onChange={setHocInches} disabled={busy} />
+
+      <BagsField value={clippingBags} onChange={setClippingBags} disabled={busy} />
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Tools (optional)</Text>
