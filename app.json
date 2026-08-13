@@ -24,6 +24,13 @@
           "NSHealthUpdateUsageDescription": "Klippa does not write to Apple Health. This permission is required by a library the app includes but is never used.",
           "background": false
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Klippa adds photos of your lawn to a mow's before/after record.",
+          "cameraPermission": "Klippa lets you photograph your lawn before and after a mow."
+        }
       ]
     ],
     "ios": {

@@ -17,6 +17,7 @@ import BagsField from './BagsField';
 import { mostRecentBags } from './bags';
 import ToolTypePicker from './ToolTypePicker';
 import { mostRecentToolTypes, normalizeToolTypes } from './tools';
+import PhotoSlots, { type PhotoSlot } from './PhotoSlots';
 import { formatShortDuration, needsShortMowConfirmation } from './mowValidation';
 import { captureWeatherForMow } from '../weather/captureWeatherForMow';
 import { captureActivityForMow } from '../activity/captureActivityForMow';
@@ -46,7 +47,14 @@ export default function SaveMowScreen({ navigation, route }: Props) {
   const [clippingBags, setClippingBags] = useState<number | undefined>(undefined);
   const [bagsSeed, setBagsSeed] = useState<number | undefined>(undefined);
   const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
+  const [beforePhotoUri, setBeforePhotoUri] = useState<string | undefined>(undefined);
+  const [afterPhotoUri, setAfterPhotoUri] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+
+  const setPhoto = useCallback((slot: PhotoSlot, uri: string | undefined) => {
+    if (slot === 'before') setBeforePhotoUri(uri);
+    else setAfterPhotoUri(uri);
+  }, []);
 
   // Default HOC and job types from the most recent mow (progressive disclosure);
   // stash the most recent bag count as the seed-on-tap value only (no pre-fill).
@@ -86,6 +94,9 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         ...(hocInches != null ? { hocInches } : {}),
         ...(clippingBags != null ? { clippingBags } : {}),
         ...(normalizedTools ? { toolTypes: normalizedTools } : {}),
+        // Picker temp URIs; the repository copies them into app-owned storage.
+        ...(beforePhotoUri ? { beforePhotoUri } : {}),
+        ...(afterPhotoUri ? { afterPhotoUri } : {}),
       });
 
       // Best-effort provenance captures, fire-and-forget: the save is already
@@ -137,7 +148,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');
     }
-  }, [saving, notes, hocInches, clippingBags, toolTypes, draft, navigation]);
+  }, [saving, notes, hocInches, clippingBags, toolTypes, beforePhotoUri, afterPhotoUri, draft, navigation]);
 
   const handleDiscard = useCallback(() => {
     navigation.goBack();
@@ -208,6 +219,13 @@ export default function SaveMowScreen({ navigation, route }: Props) {
           accessibilityLabel="Mow notes"
         />
       </View>
+
+      <PhotoSlots
+        before={beforePhotoUri}
+        after={afterPhotoUri}
+        onChange={setPhoto}
+        disabled={saving}
+      />
 
       <Button
         label={saving ? 'Saving…' : 'Save'}

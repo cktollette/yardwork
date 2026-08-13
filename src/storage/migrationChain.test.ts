@@ -29,8 +29,8 @@ const SQUARE: Position[] = [
 const CREATED = 1_700_000_000_000;
 
 /**
- * Realistic mows with the fields added across v3–v11
- * (hoc/tools/weather/activity/clippingBags).
+ * Realistic mows with the fields added across v3–v12
+ * (hoc/tools/weather/activity/clippingBags/photos).
  */
 const MOWS = [
   {
@@ -42,6 +42,8 @@ const MOWS = [
     hocInches: 2.5,
     clippingBags: 3,
     toolTypes: ['mower'],
+    beforePhotoUri: 'file:///doc/mow-photos/before.jpg',
+    afterPhotoUri: 'file:///doc/mow-photos/after.jpg',
     weather: { tempF: 72, condition: 'Clear', humidity: 40, capturedAt: 'x' },
     activity: { steps: 2000, distanceMi: 0.9, source: 'Apple Watch', capturedAt: 'x' },
   },
@@ -103,7 +105,7 @@ async function runStartupLoad(): Promise<void> {
   }
 }
 
-describe('schema migration chain — full startup load reaches v11', () => {
+describe('schema migration chain — full startup load reaches v12', () => {
   it('loads a v8 record (zones already populated per the #29 migration)', async () => {
     await seed(8, {
       id: 'prop-1',
@@ -133,9 +135,11 @@ describe('schema migration chain — full startup load reaches v11', () => {
     const prop = await propertyRepository.getOrCreateDefault();
     expect(prop.zones).toHaveLength(1);
     expect(prop.zones[0].name).toBe('Lawn');
-    // The additive v11 field round-trips through the full v7→v11 load.
+    // The additive later fields round-trip through the full v7→v12 load.
     const mows = await mowRepository.listMows();
     expect(mows[0].clippingBags).toBe(3);
+    expect(mows[0].beforePhotoUri).toBe('file:///doc/mow-photos/before.jpg');
+    expect(mows[0].afterPhotoUri).toBe('file:///doc/mow-photos/after.jpg');
   });
 
   it('reads a v7 mow that has no clippingBags as unset (additive v11 field)', async () => {
@@ -160,7 +164,33 @@ describe('schema migration chain — full startup load reaches v11', () => {
     expect(mows).toHaveLength(1);
     expect(mows[0].clippingBags).toBeUndefined(); // absent reads as "not recorded"
     expect(mows[0].hocInches).toBe(3); // untouched
-    expect(await AsyncStorage.getItem(SCHEMA_VERSION_KEY)).toBe('11');
+    expect(await AsyncStorage.getItem(SCHEMA_VERSION_KEY)).toBe('12');
+  });
+
+  it('reads a v11 mow with no photos as both slots undefined (additive v12 fields)', async () => {
+    await AsyncStorage.setItem(SCHEMA_VERSION_KEY, '11');
+    await AsyncStorage.setItem(
+      PROPERTIES_KEY,
+      JSON.stringify([
+        { id: 'prop-1', name: 'My Lawn', createdAt: CREATED, zones: [{ id: 'lawn', name: 'Lawn', vertices: SQUARE, areaSqFt: 5000 }] },
+      ]),
+    );
+    // A pre-v12 mow: has the v11 field but neither photo slot.
+    await AsyncStorage.setItem(
+      MOWS_KEY,
+      JSON.stringify([
+        { id: 'mow-v11', propertyId: 'prop-1', startedAt: CREATED, endedAt: CREATED + 1800 * 1000, durationSeconds: 1800, clippingBags: 2 },
+      ]),
+    );
+
+    await runStartupLoad();
+
+    const mows = await mowRepository.listMows();
+    expect(mows).toHaveLength(1);
+    expect(mows[0].beforePhotoUri).toBeUndefined(); // absent reads as "no photo"
+    expect(mows[0].afterPhotoUri).toBeUndefined();
+    expect(mows[0].clippingBags).toBe(2); // untouched
+    expect(await AsyncStorage.getItem(SCHEMA_VERSION_KEY)).toBe('12');
   });
 
   it('loads a v9 record (zones + equipment, model optional)', async () => {
@@ -212,7 +242,7 @@ describe('schema migration chain — full startup load reaches v11', () => {
     expect(prop.zones).toEqual([]); // corrupt lawn dropped; app loads with an empty lawn
   });
 
-  it('loads a v10 record (pre-clippings) and advances the stamp to current (v11)', async () => {
+  it('loads a v10 record (pre-clippings) and advances the stamp to current (v12)', async () => {
     await seed(10, {
       id: 'prop-1',
       name: 'My Lawn',
@@ -224,11 +254,11 @@ describe('schema migration chain — full startup load reaches v11', () => {
 
     const prop = await propertyRepository.getOrCreateDefault();
     expect(prop.zones[0].grassType).toBe('Bermuda');
-    expect(await AsyncStorage.getItem(SCHEMA_VERSION_KEY)).toBe('11');
+    expect(await AsyncStorage.getItem(SCHEMA_VERSION_KEY)).toBe('12');
   });
 
-  it('loads a v11 record (already current) as an idempotent no-op', async () => {
-    await seed(11, {
+  it('loads a v12 record (already current) as an idempotent no-op', async () => {
+    await seed(12, {
       id: 'prop-1',
       name: 'My Lawn',
       createdAt: CREATED,
@@ -239,16 +269,17 @@ describe('schema migration chain — full startup load reaches v11', () => {
 
     const mows = await mowRepository.listMows();
     expect(mows[0].clippingBags).toBe(3); // stored value untouched
+    expect(mows[0].beforePhotoUri).toBe('file:///doc/mow-photos/before.jpg'); // photos round-trip
     const prop = await propertyRepository.getOrCreateDefault();
     expect(prop.zones[0].grassType).toBe('Bermuda');
-    expect(await AsyncStorage.getItem(SCHEMA_VERSION_KEY)).toBe('11');
+    expect(await AsyncStorage.getItem(SCHEMA_VERSION_KEY)).toBe('12');
   });
 
   // The core regression: the chain must advance the stored stamp to the current
   // version from ANY supported starting version (not just n-1). This is exactly
   // what the isolated per-PR tests never checked — each seeded its own fresh
   // version and read once, so the stamp-never-advances bug slipped through.
-  it.each([7, 8, 9, 10, 11])(
+  it.each([7, 8, 9, 10, 11, 12])(
     'advances the stored schema stamp to %i-and-up → current after load (from v%i)',
     async (from) => {
       const property =

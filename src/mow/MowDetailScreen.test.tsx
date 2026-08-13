@@ -22,6 +22,14 @@ jest.mock('@react-native-community/datetimepicker', () => {
   };
 });
 
+// PhotoSlots is exercised in its own test; mock it to a prop-carrying host
+// element so we can read what it was seeded with and drive onChange.
+jest.mock('./PhotoSlots', () => ({
+  __esModule: true,
+  default: (props: Record<string, unknown>) =>
+    require('react').createElement('PhotoSlots', props),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { mowRepository } = require('./asyncStorageRepositories');
 
@@ -84,6 +92,61 @@ describe('MowDetailScreen — tool picker wiring', () => {
     // Nothing changed → no write, just navigate back.
     expect(mowRepository.update).not.toHaveBeenCalled();
     expect(navigation.goBack).toHaveBeenCalled();
+  });
+});
+
+describe('MowDetailScreen — before/after photo wiring', () => {
+  async function saveChanges(tree: ReactTestRenderer): Promise<void> {
+    await act(async () => {
+      tree.root.findByProps({ label: 'Save changes' }).props.onPress();
+    });
+  }
+  function setPhoto(tree: ReactTestRenderer, slot: 'before' | 'after', uri: string | undefined): void {
+    act(() => {
+      tree.root.findByType('PhotoSlots' as never).props.onChange(slot, uri);
+    });
+  }
+  function patch(): Record<string, unknown> {
+    return mowRepository.update.mock.calls[0][1];
+  }
+
+  it("seeds the slots from the mow's stored URIs", async () => {
+    mowRepository.getMowById.mockResolvedValue(
+      mow({ beforePhotoUri: 'file:///app/b.jpg', afterPhotoUri: 'file:///app/a.jpg' }),
+    );
+    const tree = await renderDetail();
+    const slots = tree.root.findByType('PhotoSlots' as never);
+    expect(slots.props.before).toBe('file:///app/b.jpg');
+    expect(slots.props.after).toBe('file:///app/a.jpg');
+  });
+
+  it('sends a replacing temp URI in the patch', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ beforePhotoUri: 'file:///app/b.jpg' }));
+    const tree = await renderDetail();
+    setPhoto(tree, 'before', 'file:///tmp/new.jpg');
+    await saveChanges(tree);
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { beforePhotoUri: 'file:///tmp/new.jpg' });
+  });
+
+  it('sends an explicit undefined to clear a slot', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ beforePhotoUri: 'file:///app/b.jpg' }));
+    const tree = await renderDetail();
+    setPhoto(tree, 'before', undefined);
+    await saveChanges(tree);
+    expect('beforePhotoUri' in patch()).toBe(true);
+    expect(patch().beforePhotoUri).toBeUndefined();
+  });
+
+  it('omits photo keys when the slots are untouched', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ beforePhotoUri: 'file:///app/b.jpg' }));
+    const tree = await renderDetail();
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'Mow notes' }).props.onChangeText('nice');
+    });
+    await saveChanges(tree);
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { notes: 'nice' });
+    expect(patch()).not.toHaveProperty('beforePhotoUri');
+    expect(patch()).not.toHaveProperty('afterPhotoUri');
   });
 });
 

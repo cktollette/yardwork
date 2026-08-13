@@ -126,6 +126,34 @@ describe('applyMowEdit', () => {
     expect(applyMowEdit(mow, { notes: 'x' }).toolTypes).toEqual(['edger']);
   });
 
+  it('sets a photo slot from an (already app-owned) URI in the patch', () => {
+    const mow = makeMow();
+    const edited = applyMowEdit(mow, { beforePhotoUri: 'file:///app/mow-photos/b.jpg' });
+    expect(edited.beforePhotoUri).toBe('file:///app/mow-photos/b.jpg');
+    expect('afterPhotoUri' in edited).toBe(false); // other slot untouched
+  });
+
+  it('clears a photo slot when the patch value is undefined', () => {
+    const mow = makeMow({ beforePhotoUri: 'file:///app/mow-photos/b.jpg' });
+    expect('beforePhotoUri' in applyMowEdit(mow, { beforePhotoUri: undefined })).toBe(false);
+  });
+
+  it('treats the two photo slots independently', () => {
+    const mow = makeMow({
+      beforePhotoUri: 'file:///app/mow-photos/b.jpg',
+      afterPhotoUri: 'file:///app/mow-photos/a.jpg',
+    });
+    // Replace only the after slot; before is left exactly as stored.
+    const edited = applyMowEdit(mow, { afterPhotoUri: 'file:///app/mow-photos/a2.jpg' });
+    expect(edited.beforePhotoUri).toBe('file:///app/mow-photos/b.jpg');
+    expect(edited.afterPhotoUri).toBe('file:///app/mow-photos/a2.jpg');
+  });
+
+  it('leaves photo slots untouched when the patch omits them', () => {
+    const mow = makeMow({ beforePhotoUri: 'file:///app/mow-photos/b.jpg' });
+    expect(applyMowEdit(mow, { notes: 'x' }).beforePhotoUri).toBe('file:///app/mow-photos/b.jpg');
+  });
+
   it('rejects an edit that makes endedAt <= startedAt', () => {
     const mow = makeMow();
     expect(() => applyMowEdit(mow, { durationSeconds: 0 })).toThrow();

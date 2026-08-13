@@ -51,7 +51,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // v11: Mow gained optional `clippingBags` (count of clippings bags collected,
 //     0–20). Purely additive — absent reads as "not recorded", so no data
 //     transform runs on upgrade; older records without the field load cleanly.
-export const SCHEMA_VERSION = 11;
+// v12: Mow gained optional `beforePhotoUri` / `afterPhotoUri` (app-owned image
+//     file URIs; the record stores URIs only, never image data). Purely
+//     additive — absent reads as "no photo", so no data transform runs on
+//     upgrade; older records without the fields load cleanly.
+export const SCHEMA_VERSION = 12;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**

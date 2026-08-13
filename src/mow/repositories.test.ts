@@ -14,8 +14,21 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// PhotoStore is mocked so we can assert the repository's copy/delete file calls
+// without any real filesystem. copyIntoStore returns a deterministic app URI
+// derived from the source, so tests can assert the STORED (app) URI vs the temp.
+jest.mock('../photos', () => ({
+  photoStore: {
+    copyIntoStore: jest.fn(async (uri: string) => `file:///app/mow-photos/copied-${uri.split('/').pop()}`),
+    deleteFile: jest.fn(async () => undefined),
+  },
+}));
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { photoStore } = require('../photos');
+
 beforeEach(async () => {
   await AsyncStorage.clear();
+  jest.clearAllMocks();
 });
 
 /** Build a NewMow with sensible defaults; override per-test. */
@@ -29,6 +42,101 @@ function makeNewMow(overrides: Partial<NewMow> = {}): NewMow {
     ...overrides,
   };
 }
+
+describe('MowRepository — photo file lifecycle', () => {
+  it('copies a picked temp URI into the store on save and persists the APP URI', async () => {
+    const saved = await mowRepository.saveMow(
+      makeNewMow({ beforePhotoUri: 'file:///tmp/before.jpg' }),
+    );
+    expect(photoStore.copyIntoStore).toHaveBeenCalledWith('file:///tmp/before.jpg');
+    // The stored URI is the copied app URI, never the picker temp URI.
+    expect(saved.beforePhotoUri).toBe('file:///app/mow-photos/copied-before.jpg');
+    const stored = JSON.parse((await AsyncStorage.getItem(MOWS_KEY)) as string)[0];
+    expect(stored.beforePhotoUri).toBe('file:///app/mow-photos/copied-before.jpg');
+  });
+
+  it('does not touch the photo store when a save has no photos', async () => {
+    await mowRepository.saveMow(makeNewMow());
+    expect(photoStore.copyIntoStore).not.toHaveBeenCalled();
+    expect(photoStore.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it('on replace: copies the new photo and deletes the SUPERSEDED old file only', async () => {
+    const saved = await mowRepository.saveMow(
+      makeNewMow({ beforePhotoUri: 'file:///tmp/before.jpg' }),
+    );
+    const oldUri = saved.beforePhotoUri; // file:///app/mow-photos/copied-before.jpg
+    jest.clearAllMocks();
+
+    const updated = await mowRepository.update(saved.id, {
+      beforePhotoUri: 'file:///tmp/new.jpg',
+    });
+
+    expect(photoStore.copyIntoStore).toHaveBeenCalledWith('file:///tmp/new.jpg');
+    expect(updated.beforePhotoUri).toBe('file:///app/mow-photos/copied-new.jpg');
+    // Superseded old file deleted; the new file is NOT deleted.
+    expect(photoStore.deleteFile).toHaveBeenCalledWith(oldUri);
+    expect(photoStore.deleteFile).not.toHaveBeenCalledWith('file:///app/mow-photos/copied-new.jpg');
+    expect(photoStore.deleteFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('on clear: deletes the old file and stores no URI', async () => {
+    const saved = await mowRepository.saveMow(
+      makeNewMow({ beforePhotoUri: 'file:///tmp/before.jpg' }),
+    );
+    const oldUri = saved.beforePhotoUri;
+    jest.clearAllMocks();
+
+    const updated = await mowRepository.update(saved.id, { beforePhotoUri: undefined });
+
+    expect(updated.beforePhotoUri).toBeUndefined();
+    expect(photoStore.copyIntoStore).not.toHaveBeenCalled();
+    expect(photoStore.deleteFile).toHaveBeenCalledWith(oldUri);
+    expect(photoStore.deleteFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('on an unrelated edit: leaves photo files untouched', async () => {
+    const saved = await mowRepository.saveMow(
+      makeNewMow({ beforePhotoUri: 'file:///tmp/before.jpg' }),
+    );
+    jest.clearAllMocks();
+
+    const updated = await mowRepository.update(saved.id, { notes: 'nice' });
+
+    expect(photoStore.copyIntoStore).not.toHaveBeenCalled();
+    expect(photoStore.deleteFile).not.toHaveBeenCalled();
+    expect(updated.beforePhotoUri).toBe('file:///app/mow-photos/copied-before.jpg');
+  });
+
+  it('on delete: deletes BOTH slot files, then removes the record', async () => {
+    const saved = await mowRepository.saveMow(
+      makeNewMow({ beforePhotoUri: 'file:///tmp/b.jpg', afterPhotoUri: 'file:///tmp/a.jpg' }),
+    );
+    jest.clearAllMocks();
+
+    await mowRepository.delete(saved.id);
+
+    expect(photoStore.deleteFile).toHaveBeenCalledWith('file:///app/mow-photos/copied-b.jpg');
+    expect(photoStore.deleteFile).toHaveBeenCalledWith('file:///app/mow-photos/copied-a.jpg');
+    expect(photoStore.deleteFile).toHaveBeenCalledTimes(2);
+    expect(await mowRepository.getMowById(saved.id)).toBeNull();
+  });
+
+  it('on delete of a photoless mow: removes the record without any file delete', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow());
+    jest.clearAllMocks();
+
+    await mowRepository.delete(saved.id);
+
+    expect(photoStore.deleteFile).not.toHaveBeenCalled();
+    expect(await mowRepository.getMowById(saved.id)).toBeNull();
+  });
+
+  it('on delete of an unknown id: no file delete, no throw (idempotent)', async () => {
+    await expect(mowRepository.delete('nope')).resolves.toBeUndefined();
+    expect(photoStore.deleteFile).not.toHaveBeenCalled();
+  });
+});
 
 describe('MowRepository', () => {
   it('round-trips a saved mow through listMows', async () => {

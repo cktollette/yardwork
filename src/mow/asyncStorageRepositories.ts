@@ -13,6 +13,7 @@ import {
   type ZoneEdit,
 } from './repositories';
 import { ensureSchemaVersion } from '../storage/schema';
+import { photoStore } from '../photos';
 import type { Weather } from '../weather/WeatherService';
 import type { Activity } from '../activity/ActivityService';
 
@@ -78,10 +79,28 @@ class AsyncStorageMowRepository implements MowRepository {
     }
     return this.enqueue(async () => {
       await ensureSchemaVersion();
-      const mow: Mow = { ...input, id: generateId() };
+      // Screens pass picker TEMP URIs; copy them into app-owned storage first so
+      // the persisted record points at durable files (D-057). The repository is
+      // the single choke point for photo file I/O — no screen touches the store.
+      const { beforePhotoUri: rawBefore, afterPhotoUri: rawAfter, ...rest } = input;
+      const beforePhotoUri = rawBefore ? await photoStore.copyIntoStore(rawBefore) : undefined;
+      const afterPhotoUri = rawAfter ? await photoStore.copyIntoStore(rawAfter) : undefined;
+      const mow: Mow = {
+        ...rest,
+        id: generateId(),
+        ...(beforePhotoUri ? { beforePhotoUri } : {}),
+        ...(afterPhotoUri ? { afterPhotoUri } : {}),
+      };
       const mows = await readArray<Mow>(MOWS_KEY);
       mows.push(mow);
-      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+      try {
+        await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+      } catch (err) {
+        // Orphan-safety: the record didn't persist, so drop the files we copied.
+        await photoStore.deleteFile(beforePhotoUri);
+        await photoStore.deleteFile(afterPhotoUri);
+        throw err;
+      }
       return mow;
     });
   }
@@ -107,9 +126,27 @@ class AsyncStorageMowRepository implements MowRepository {
       if (index === -1) {
         throw new Error(`No mow with id ${id}`);
       }
+      const existing = mows[index];
+      // Resolve any picker temp URI in the patch to an app URI (copy into the
+      // store) BEFORE applying, so the persisted record points at a durable file.
+      // A present-undefined stays a clear; an omitted slot stays omitted.
+      const effectivePatch: MowEdit = { ...patch };
+      const copied: string[] = []; // freshly-copied files, for cleanup on failure
+      if ('beforePhotoUri' in patch) {
+        effectivePatch.beforePhotoUri = patch.beforePhotoUri
+          ? await photoStore.copyIntoStore(patch.beforePhotoUri)
+          : undefined;
+        if (effectivePatch.beforePhotoUri) copied.push(effectivePatch.beforePhotoUri);
+      }
+      if ('afterPhotoUri' in patch) {
+        effectivePatch.afterPhotoUri = patch.afterPhotoUri
+          ? await photoStore.copyIntoStore(patch.afterPhotoUri)
+          : undefined;
+        if (effectivePatch.afterPhotoUri) copied.push(effectivePatch.afterPhotoUri);
+      }
       // applyMowEdit validates before we write, so a rejected edit (e.g. a
       // non-positive duration) leaves stored data untouched.
-      const updated = applyMowEdit(mows[index], patch);
+      const updated = applyMowEdit(existing, effectivePatch);
       // Weather is capture-only provenance (D-040): an edit can never clear or
       // change it, regardless of what the caller passes. Carry the stored value
       // through verbatim.
@@ -129,7 +166,31 @@ class AsyncStorageMowRepository implements MowRepository {
         delete updated.activity;
       }
       mows[index] = updated;
-      await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+      try {
+        await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(mows));
+      } catch (err) {
+        // Record didn't persist → drop the copies we made (the OLD files stay
+        // referenced by the unchanged record, so we must not touch them).
+        for (const uri of copied) await photoStore.deleteFile(uri);
+        throw err;
+      }
+      // Record is durable → delete each SUPERSEDED old file: a slot that was in
+      // the patch and moved away from a non-null old URI (replace or clear).
+      // Never delete a file the persisted record still points at.
+      if (
+        'beforePhotoUri' in patch &&
+        existing.beforePhotoUri &&
+        existing.beforePhotoUri !== updated.beforePhotoUri
+      ) {
+        await photoStore.deleteFile(existing.beforePhotoUri);
+      }
+      if (
+        'afterPhotoUri' in patch &&
+        existing.afterPhotoUri &&
+        existing.afterPhotoUri !== updated.afterPhotoUri
+      ) {
+        await photoStore.deleteFile(existing.afterPhotoUri);
+      }
       return updated;
     });
   }
@@ -138,9 +199,16 @@ class AsyncStorageMowRepository implements MowRepository {
     return this.enqueue(async () => {
       await ensureSchemaVersion();
       const mows = await readArray<Mow>(MOWS_KEY);
+      const target = mows.find((m) => m.id === id);
       const remaining = mows.filter((m) => m.id !== id);
-      // Idempotent: only write when something actually changed.
+      // Idempotent: only act when something actually changed.
       if (remaining.length !== mows.length) {
+        // Delete the photo files BEFORE removing the record, so if a file delete
+        // throws the record survives for a retried delete to re-clean — no
+        // orphan. deleteFile is itself idempotent on a missing file (D-027); we
+        // only call it for slots that actually hold a URI.
+        if (target?.beforePhotoUri) await photoStore.deleteFile(target.beforePhotoUri);
+        if (target?.afterPhotoUri) await photoStore.deleteFile(target.afterPhotoUri);
         await AsyncStorage.setItem(MOWS_KEY, JSON.stringify(remaining));
       }
     });
