@@ -16,6 +16,10 @@ import { normalizeToolTypes } from './tools';
  *    patch value is `undefined`. A patch value of `0` sets zero, not clears.
  *  - `toolTypes` sets the job types performed (deduped/ordered), or clears them
  *    when the patch value is empty/undefined.
+ *  - `beforePhotoUri` / `afterPhotoUri` set the slot's stored URI, or clear it
+ *    when the patch value is `undefined`. The value here is ALREADY an app-owned
+ *    URI: the repository copies the picker temp URI into the store (and deletes
+ *    the superseded file) around this pure transform — no file I/O happens here.
  * Nothing else about a mow is editable.
  */
 export interface MowEdit {
@@ -41,6 +45,13 @@ export interface MowEdit {
    * `undefined` clears them. Omit the key to leave the tools as-is.
    */
   toolTypes?: EquipmentType[];
+  /**
+   * New before/after photo URIs (already app-owned; the repository resolves
+   * picker temp URIs to these before applying). An explicit `undefined` clears
+   * the slot. Omit the key to leave that slot as-is.
+   */
+  beforePhotoUri?: string;
+  afterPhotoUri?: string;
 }
 
 /**
@@ -86,6 +97,17 @@ export function applyMowEdit(mow: Mow, patch: MowEdit): Mow {
     const normalized = normalizeToolTypes(patch.toolTypes);
     if (normalized) next.toolTypes = normalized;
     else delete next.toolTypes;
+  }
+
+  // Photo slots: present string sets, present-undefined clears (the repository
+  // has already resolved any picker temp URI to an app URI). Independent slots.
+  if ('beforePhotoUri' in patch) {
+    if (patch.beforePhotoUri) next.beforePhotoUri = patch.beforePhotoUri;
+    else delete next.beforePhotoUri;
+  }
+  if ('afterPhotoUri' in patch) {
+    if (patch.afterPhotoUri) next.afterPhotoUri = patch.afterPhotoUri;
+    else delete next.afterPhotoUri;
   }
 
   return next;

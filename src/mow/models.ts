@@ -90,6 +90,17 @@ export interface Mow {
    */
   toolTypes?: EquipmentType[];
   /**
+   * Optional before/after photos of the lawn (D-057). Two independent, optional
+   * slots — NOT a photo list. Each holds an APP-OWNED file URI (the picker's
+   * temporary URI is copied + re-encoded into the app dir by the PhotoStore
+   * before it is stored here; the record never holds image data, only a URI).
+   * Absent means that slot has no photo. Save-time editable: freely replaced or
+   * cleared, and the superseded file is deleted so nothing orphans. See
+   * src/photos and the repository's copy/cleanup logic.
+   */
+  beforePhotoUri?: string;
+  afterPhotoUri?: string;
+  /**
    * Weather captured once at save time (capture-only provenance, D-040). Written
    * exactly once by the best-effort capture path (see captureWeatherForMow) and
    * NEVER edited, backfilled, or cleared afterwards. Absent means capture didn't
