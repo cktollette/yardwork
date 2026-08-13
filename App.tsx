@@ -15,6 +15,9 @@ import RootTabs from './src/navigation/RootTabs';
 // Set the Mapbox public access token once at app start, before any MapView
 // renders. Loaded from the env; null when unset so no token is baked in.
 Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? null);
+// Opt out of Mapbox's usage telemetry (event collection). App-init scope,
+// alongside the token so it's set before any MapView renders.
+Mapbox.setTelemetryEnabled(false);
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
