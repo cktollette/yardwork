@@ -83,6 +83,30 @@ describe('applyMowEdit', () => {
     expect(applyMowEdit(mow, { durationSeconds: 100 }).hocInches).toBe(2.25);
   });
 
+  it('sets clippingBags from a patch, rounding/clamping to the valid range', () => {
+    const mow = makeMow();
+    expect(applyMowEdit(mow, { clippingBags: 3 }).clippingBags).toBe(3);
+    expect(applyMowEdit(mow, { clippingBags: 2.6 }).clippingBags).toBe(3); // rounded
+    expect(applyMowEdit(mow, { clippingBags: 99 }).clippingBags).toBe(20); // clamped
+  });
+
+  it('sets clippingBags to 0 (a recorded value, not a clear)', () => {
+    const mow = makeMow();
+    const edited = applyMowEdit(mow, { clippingBags: 0 });
+    expect('clippingBags' in edited).toBe(true);
+    expect(edited.clippingBags).toBe(0);
+  });
+
+  it('clears clippingBags when the patch value is undefined', () => {
+    const mow = makeMow({ clippingBags: 4 });
+    expect('clippingBags' in applyMowEdit(mow, { clippingBags: undefined })).toBe(false);
+  });
+
+  it('leaves clippingBags untouched when the patch omits it', () => {
+    const mow = makeMow({ clippingBags: 2 });
+    expect(applyMowEdit(mow, { notes: 'x' }).clippingBags).toBe(2);
+  });
+
   it('sets toolTypes from a patch, deduping and forcing canonical order', () => {
     const mow = makeMow();
     expect(applyMowEdit(mow, { toolTypes: ['blower', 'mower', 'mower'] }).toolTypes).toEqual([
