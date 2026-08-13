@@ -34,6 +34,7 @@ import {
   pickCameraCenter,
   withTimeout,
 } from './location';
+import { isUserCameraGesture, shouldApplyResolvedFix } from './cameraGuard';
 
 /**
  * Draw / edit the lawn polygon on a Mapbox satellite layer.
@@ -104,6 +105,21 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
   useEffect(() => {
     verticesLenRef.current = vertices.length;
   }, [vertices.length]);
+
+  // Late-GPS-fix guard: has the user taken over the camera (pan/zoom) since
+  // mount? A ref, not state — the async location effect reads it through a live
+  // closure, and flipping it must not re-render. Session-scoped UI state: a
+  // fresh component instance starts false, so it resets per screen mount and is
+  // never persisted. Set once, from a genuine gesture only (see below).
+  const userMovedCameraRef = useRef(false);
+  // onCameraChanged fires for BOTH programmatic <Camera> writes and user
+  // gestures; isUserCameraGesture keeps only the latter, so a programmatic
+  // recenter can't mark the camera user-touched and defeat the guard.
+  const handleCameraChanged = useCallback((state: unknown) => {
+    if (!userMovedCameraRef.current && isUserCameraGesture(state as never)) {
+      userMovedCameraRef.current = true;
+    }
+  }, []);
 
   // Disable the native-stack interactive pop/back-swipe (D-012) for the WHOLE
   // time draw mode is on, not just during a drag. The pop recognizer lives
@@ -191,9 +207,18 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
       }
       if (!active || gate !== 'proceed') return;
 
-      // Instant center from the last known fix, if any.
+      // Instant center from the last known fix, if any. Guarded like the refine:
+      // if the user has already grabbed the camera (or started drawing) in the
+      // brief window before this resolves, we leave their framing alone.
       const lastKnown = await Location.getLastKnownPositionAsync();
-      if (active && lastKnown) {
+      if (
+        active &&
+        lastKnown &&
+        shouldApplyResolvedFix({
+          userMovedCamera: userMovedCameraRef.current,
+          hasDrawnVertices: verticesLenRef.current > 0,
+        })
+      ) {
         setCameraCenter(pickCameraCenter(lastKnown.coords, DEFAULT_CENTER));
       }
 
@@ -203,10 +228,17 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
           Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
           CURRENT_POSITION_TIMEOUT_MS,
         );
-        // Skip a late refine once drawing has begun so it can't jerk the camera.
-        // (Known v0 tradeoff: this does NOT cover a manual pan before the first
-        // vertex — that pan will still be overridden by the refine.)
-        if (active && verticesLenRef.current === 0) {
+        // Discard the late fix once the user has taken over the camera — whether
+        // by drawing a vertex or by panning/zooming to frame their yard. The
+        // camera-interaction half closes the pre-existing gap where a manual pan
+        // before the first vertex was still overridden by this refine.
+        if (
+          active &&
+          shouldApplyResolvedFix({
+            userMovedCamera: userMovedCameraRef.current,
+            hasDrawnVertices: verticesLenRef.current > 0,
+          })
+        ) {
           setCameraCenter(pickCameraCenter(current.coords, DEFAULT_CENTER));
         }
       } catch {
@@ -390,6 +422,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
         style={styles.map}
         styleURL={Mapbox.StyleURL.Satellite}
         onPress={handleMapPress}
+        onCameraChanged={handleCameraChanged}
         onDidFinishLoadingMap={measureMap}
         onLayout={measureMap}
         scrollEnabled={mapScrollEnabled}

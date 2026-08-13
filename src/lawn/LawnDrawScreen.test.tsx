@@ -75,6 +75,83 @@ beforeEach(() => {
   propertyRepository.addZone.mockResolvedValue(property([]));
 });
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Location = require('expo-location');
+
+const DEFAULT_CENTER: Position = [-96.8236, 33.1507];
+const FIX: Position = [-97.1, 32.9];
+
+/** The <Camera>'s current controlled target. */
+function cameraCenter(tree: ReactTestRenderer): Position {
+  return tree.root.findByProps({ zoomLevel: 18.5 }).props.centerCoordinate as Position;
+}
+
+/** Drive the map's onCameraChanged with a synthetic gesture / programmatic move. */
+function fireCameraChange(tree: ReactTestRenderer, isGestureActive: boolean): void {
+  tree.root
+    .findByProps({ styleURL: 'satellite' })
+    .props.onCameraChanged({ gestures: { isGestureActive } });
+}
+
+describe('LawnDrawScreen — late-GPS-fix camera guard (create mode, first zone)', () => {
+  // A deferred current-position fix so a "user pan" can be interleaved between
+  // mount and the fix resolving.
+  let resolveFix: (v: { coords: { longitude: number; latitude: number } }) => void;
+
+  beforeEach(() => {
+    // First-ever zone: no property/zones → the effect falls through to GPS.
+    propertyRepository.getById.mockResolvedValue(null);
+    Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+    Location.getLastKnownPositionAsync.mockResolvedValue(null);
+    Location.getCurrentPositionAsync.mockReturnValue(
+      new Promise((res) => {
+        resolveFix = res;
+      }),
+    );
+  });
+
+  it('applies the fix when it resolves before any interaction', async () => {
+    const tree = await renderDraw('create');
+    expect(cameraCenter(tree)).toEqual(DEFAULT_CENTER); // not yet resolved
+
+    await act(async () => {
+      resolveFix({ coords: { longitude: FIX[0], latitude: FIX[1] } });
+    });
+
+    expect(cameraCenter(tree)).toEqual(FIX);
+  });
+
+  it('discards the fix silently once the user has moved the camera', async () => {
+    const tree = await renderDraw('create');
+
+    // User pans/zooms (real gesture) before the fix lands.
+    await act(async () => {
+      fireCameraChange(tree, true);
+    });
+    await act(async () => {
+      resolveFix({ coords: { longitude: FIX[0], latitude: FIX[1] } });
+    });
+
+    // Their framing is untouched — no snap to the late fix.
+    expect(cameraCenter(tree)).toEqual(DEFAULT_CENTER);
+  });
+
+  it('does NOT trip the guard on a programmatic move (isGestureActive false)', async () => {
+    const tree = await renderDraw('create');
+
+    // A programmatic <Camera> write reports the gesture flag false.
+    await act(async () => {
+      fireCameraChange(tree, false);
+    });
+    await act(async () => {
+      resolveFix({ coords: { longitude: FIX[0], latitude: FIX[1] } });
+    });
+
+    // The guard did not defeat itself — the fix still applies.
+    expect(cameraCenter(tree)).toEqual(FIX);
+  });
+});
+
 describe('LawnDrawScreen — per-zone I/O seam', () => {
   it('edit mode loads the targeted zone and Save writes back to THAT zone only', async () => {
     const zone: Zone = { id: 'z2', name: 'Back', vertices: SQUARE, areaSqFt: 500 };
