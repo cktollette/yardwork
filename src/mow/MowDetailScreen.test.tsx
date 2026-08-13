@@ -270,7 +270,7 @@ describe('MowDetailScreen — native datetime picker', () => {
     selected: Date,
   ): Promise<void> {
     await act(async () => {
-      tree.root.findByProps({ testID }).props.onChange({ type: 'set' }, selected);
+      tree.root.findByProps({ testID }).props.onValueChange({ type: 'set' }, selected);
     });
   }
 

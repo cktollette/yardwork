@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker, {
-  type DateTimePickerEvent,
+  type DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import Button from '../components/Button';
 import type { EquipmentType } from '../equipment/models';
@@ -94,12 +94,13 @@ export default function MowDetailScreen({ navigation, route }: Props) {
 
   // Pickers write back into the same string state the text fields used, so the
   // save/diff path and the stored format are unchanged. Date mode only touches
-  // the date part; time mode only the time part.
-  const onChangeDate = useCallback((_event: DateTimePickerEvent, selected?: Date) => {
-    if (selected) setDateField(formatDateField(selected.getTime()));
+  // the date part; time mode only the time part. onValueChange fires only on an
+  // actual selection, so `selected` is always present (no dismiss guard needed).
+  const onValueChangeDate = useCallback((_event: DateTimePickerChangeEvent, selected: Date) => {
+    setDateField(formatDateField(selected.getTime()));
   }, []);
-  const onChangeTime = useCallback((_event: DateTimePickerEvent, selected?: Date) => {
-    if (selected) setTimeField(formatTimeField(selected.getTime()));
+  const onValueChangeTime = useCallback((_event: DateTimePickerChangeEvent, selected: Date) => {
+    setTimeField(formatTimeField(selected.getTime()));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -206,7 +207,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={new Date(parseDateTimeField(dateField, timeField) ?? mow.startedAt)}
           mode="date"
           display={Platform.OS === 'ios' ? 'compact' : 'default'}
-          onChange={onChangeDate}
+          onValueChange={onValueChangeDate}
           testID="mow-date-picker"
           accessibilityLabel="Mow date"
         />
@@ -218,7 +219,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           value={new Date(parseDateTimeField(dateField, timeField) ?? mow.startedAt)}
           mode="time"
           display={Platform.OS === 'ios' ? 'compact' : 'default'}
-          onChange={onChangeTime}
+          onValueChange={onValueChangeTime}
           testID="mow-time-picker"
           accessibilityLabel="Mow start time"
         />
