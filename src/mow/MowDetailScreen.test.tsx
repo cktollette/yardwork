@@ -87,6 +87,79 @@ describe('MowDetailScreen — tool picker wiring', () => {
   });
 });
 
+describe('MowDetailScreen — clippings bags wiring', () => {
+  async function saveChanges(tree: ReactTestRenderer): Promise<void> {
+    await act(async () => {
+      tree.root.findByProps({ label: 'Save changes' }).props.onPress();
+    });
+  }
+  async function press(tree: ReactTestRenderer, label: string): Promise<void> {
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: label }).props.onPress();
+    });
+  }
+
+  it("seeds the field from the mow's own clippingBags", async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ clippingBags: 3 }));
+
+    const tree = await renderDetail();
+    // The set state (stepper) is shown, labelled with the stored count.
+    expect(tree.root.findByProps({ accessibilityLabel: 'Clippings bags 3 bags' })).toBeTruthy();
+  });
+
+  it('shows the Add bags affordance for a mow with no bags', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow());
+
+    const tree = await renderDetail();
+    expect(tree.root.findByProps({ accessibilityLabel: 'Add clippings bags' })).toBeTruthy();
+  });
+
+  it('sends the changed count in the patch', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ clippingBags: 3 }));
+
+    const tree = await renderDetail();
+    await press(tree, 'Increase clippings bags'); // 3 → 4
+    await saveChanges(tree);
+
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { clippingBags: 4 });
+  });
+
+  it('adds a count to a mow that had none (Add bags → default 1)', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow());
+
+    const tree = await renderDetail();
+    await press(tree, 'Add clippings bags'); // seeds default 1
+    await saveChanges(tree);
+
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { clippingBags: 1 });
+  });
+
+  it('clears the count with an explicit undefined in the patch', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ clippingBags: 3 }));
+
+    const tree = await renderDetail();
+    await press(tree, 'Clear clippings bags');
+    await saveChanges(tree);
+
+    const patch = mowRepository.update.mock.calls[0][1];
+    expect('clippingBags' in patch).toBe(true);
+    expect(patch.clippingBags).toBeUndefined();
+  });
+
+  it('omits clippingBags from the patch when it is untouched', async () => {
+    mowRepository.getMowById.mockResolvedValue(mow({ clippingBags: 3 }));
+
+    const tree = await renderDetail();
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'Mow notes' }).props.onChangeText('nice');
+    });
+    await saveChanges(tree);
+
+    expect(mowRepository.update).toHaveBeenCalledWith('mow-1', { notes: 'nice' });
+    expect(mowRepository.update.mock.calls[0][1]).not.toHaveProperty('clippingBags');
+  });
+});
+
 const WEATHER: Weather = {
   tempF: 94,
   condition: 'Clear',

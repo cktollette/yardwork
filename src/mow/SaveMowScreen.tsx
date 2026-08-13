@@ -13,6 +13,8 @@ import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import HocField from './HocField';
 import { mostRecentHoc } from './hoc';
+import BagsField from './BagsField';
+import { mostRecentBags } from './bags';
 import ToolTypePicker from './ToolTypePicker';
 import { mostRecentToolTypes, normalizeToolTypes } from './tools';
 import { formatShortDuration, needsShortMowConfirmation } from './mowValidation';
@@ -38,15 +40,22 @@ export default function SaveMowScreen({ navigation, route }: Props) {
   const { draft } = route.params;
   const [notes, setNotes] = useState('');
   const [hocInches, setHocInches] = useState<number | undefined>(undefined);
+  // Clippings bags starts UNSET and never auto-fills (bags are the exception per
+  // mow, not the norm). `bagsSeed` holds the last-entered count so the "Add bags"
+  // affordance can seed-on-tap; the field itself stays undefined until tapped.
+  const [clippingBags, setClippingBags] = useState<number | undefined>(undefined);
+  const [bagsSeed, setBagsSeed] = useState<number | undefined>(undefined);
   const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Default HOC and job types from the most recent mow (progressive disclosure).
+  // Default HOC and job types from the most recent mow (progressive disclosure);
+  // stash the most recent bag count as the seed-on-tap value only (no pre-fill).
   useEffect(() => {
     let active = true;
     mowRepository.listMows().then((mows) => {
       if (!active) return;
       setHocInches(mostRecentHoc(mows));
+      setBagsSeed(mostRecentBags(mows));
       setToolTypes(mostRecentToolTypes(mows) ?? []);
     });
     return () => {
@@ -75,6 +84,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         durationSeconds: draft.durationSeconds,
         ...(trimmed ? { notes: trimmed } : {}),
         ...(hocInches != null ? { hocInches } : {}),
+        ...(clippingBags != null ? { clippingBags } : {}),
         ...(normalizedTools ? { toolTypes: normalizedTools } : {}),
       });
 
@@ -127,7 +137,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');
     }
-  }, [saving, notes, hocInches, toolTypes, draft, navigation]);
+  }, [saving, notes, hocInches, clippingBags, toolTypes, draft, navigation]);
 
   const handleDiscard = useCallback(() => {
     navigation.goBack();
@@ -166,6 +176,13 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       </View>
 
       <HocField value={hocInches} onChange={setHocInches} disabled={saving} />
+
+      <BagsField
+        value={clippingBags}
+        seed={bagsSeed}
+        onChange={setClippingBags}
+        disabled={saving}
+      />
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Tools (optional)</Text>

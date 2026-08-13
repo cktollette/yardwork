@@ -135,6 +135,62 @@ describe('SaveMowScreen — short-mow confirmation', () => {
   });
 });
 
+describe('SaveMowScreen — clippings bags (seed-on-tap, no auto-fill)', () => {
+  async function tapAddBags(tree: ReactTestRenderer): Promise<void> {
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'Add clippings bags' }).props.onPress();
+    });
+  }
+
+  function savedPayload(): Record<string, unknown> {
+    return (mowRepository.saveMow as jest.Mock).mock.calls[0][0];
+  }
+
+  it('starts unset even when the last mow recorded bags; saving without tapping omits it', async () => {
+    mowRepository.listMows.mockResolvedValue([{ id: 'm0', clippingBags: 5 }]);
+    const tree = await renderSave(600);
+
+    // The field shows the "Add bags" affordance, not a pre-filled stepper.
+    expect(tree.root.findByProps({ accessibilityLabel: 'Add clippings bags' })).toBeTruthy();
+    expect(tree.root.findAllByProps({ accessibilityLabel: 'Increase clippings bags' })).toHaveLength(0);
+
+    await pressSave(tree);
+    expect('clippingBags' in savedPayload()).toBe(false);
+  });
+
+  it('seeds the last-entered count on tap and saves it', async () => {
+    mowRepository.listMows.mockResolvedValue([{ id: 'm0', clippingBags: 5 }]);
+    const tree = await renderSave(600);
+
+    await tapAddBags(tree);
+    await pressSave(tree);
+
+    expect(savedPayload()).toEqual(expect.objectContaining({ clippingBags: 5 }));
+  });
+
+  it('seeds 0 on tap when the last mow recorded 0 (a real value, not unset)', async () => {
+    mowRepository.listMows.mockResolvedValue([{ id: 'm0', clippingBags: 0 }]);
+    const tree = await renderSave(600);
+
+    await tapAddBags(tree);
+    await pressSave(tree);
+
+    const payload = savedPayload();
+    expect('clippingBags' in payload).toBe(true);
+    expect(payload.clippingBags).toBe(0);
+  });
+
+  it('seeds the default (1) on tap when there is no history', async () => {
+    mowRepository.listMows.mockResolvedValue([]);
+    const tree = await renderSave(600);
+
+    await tapAddBags(tree);
+    await pressSave(tree);
+
+    expect(savedPayload()).toEqual(expect.objectContaining({ clippingBags: 1 }));
+  });
+});
+
 describe('SaveMowScreen — best-effort weather capture', () => {
   it('fires capture with the saved mow id after a successful save', async () => {
     const tree = await renderSave(600);
