@@ -20,6 +20,7 @@ import { formatMowDate } from './format';
 import HocField from './HocField';
 import BagsField from './BagsField';
 import ToolTypePicker from './ToolTypePicker';
+import PhotoSlots, { type PhotoSlot } from './PhotoSlots';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
 import type { RootStackScreenProps } from './navigation';
@@ -57,7 +58,14 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   const [hocInches, setHocInches] = useState<number | undefined>(undefined);
   const [clippingBags, setClippingBags] = useState<number | undefined>(undefined);
   const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
+  const [beforePhotoUri, setBeforePhotoUri] = useState<string | undefined>(undefined);
+  const [afterPhotoUri, setAfterPhotoUri] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+
+  const setPhoto = useCallback((slot: PhotoSlot, uri: string | undefined) => {
+    if (slot === 'before') setBeforePhotoUri(uri);
+    else setAfterPhotoUri(uri);
+  }, []);
   // The mow's job types as loaded, for diffing on save so an untouched selection
   // produces no patch.
   const initialToolsRef = useRef<EquipmentType[]>([]);
@@ -76,6 +84,8 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         setNotes(loaded.notes ?? '');
         setHocInches(loaded.hocInches);
         setClippingBags(loaded.clippingBags);
+        setBeforePhotoUri(loaded.beforePhotoUri);
+        setAfterPhotoUri(loaded.afterPhotoUri);
         const loadedTools = loaded.toolTypes ?? [];
         setToolTypes(loadedTools);
         initialToolsRef.current = loadedTools;
@@ -150,6 +160,16 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       patch.toolTypes = toolTypes;
     }
 
+    // Photo slots: include only a changed slot. A replace sends a fresh picker
+    // temp URI (the repository copies it + deletes the old file); a clear sends
+    // undefined; an unchanged slot is omitted. Compare against the loaded mow.
+    if (beforePhotoUri !== mow.beforePhotoUri) {
+      patch.beforePhotoUri = beforePhotoUri;
+    }
+    if (afterPhotoUri !== mow.afterPhotoUri) {
+      patch.afterPhotoUri = afterPhotoUri;
+    }
+
     if (Object.keys(patch).length === 0) {
       navigation.goBack(); // nothing changed
       return;
@@ -163,7 +183,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       setBusy(false);
       Alert.alert("Couldn't save changes", 'Please check the values and try again.');
     }
-  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, clippingBags, toolTypes, navigation]);
+  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, clippingBags, toolTypes, beforePhotoUri, afterPhotoUri, navigation]);
 
   const handleDelete = useCallback(() => {
     if (!mow || busy) return;
@@ -287,6 +307,13 @@ export default function MowDetailScreen({ navigation, route }: Props) {
           accessibilityLabel="Mow notes"
         />
       </View>
+
+      <PhotoSlots
+        before={beforePhotoUri}
+        after={afterPhotoUri}
+        onChange={setPhoto}
+        disabled={busy}
+      />
 
       <Button
         label={busy ? 'Saving…' : 'Save changes'}

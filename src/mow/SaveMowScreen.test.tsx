@@ -23,6 +23,14 @@ jest.mock('../lawn/prompts', () => ({
 jest.mock('../weather/captureWeatherForMow', () => ({ captureWeatherForMow: jest.fn() }));
 jest.mock('../activity/captureActivityForMow', () => ({ captureActivityForMow: jest.fn() }));
 
+// PhotoSlots is exercised in its own test; here mock it to a prop-carrying host
+// element so we can drive onChange and assert what the save payload includes.
+jest.mock('./PhotoSlots', () => ({
+  __esModule: true,
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  default: (props: Record<string, unknown>) => require('react').createElement('PhotoSlots', props),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { mowRepository, propertyRepository } = require('./asyncStorageRepositories');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -188,6 +196,40 @@ describe('SaveMowScreen — clippings bags (seed-on-tap, no auto-fill)', () => {
     await pressSave(tree);
 
     expect(savedPayload()).toEqual(expect.objectContaining({ clippingBags: 1 }));
+  });
+});
+
+describe('SaveMowScreen — before/after photos', () => {
+  function setPhoto(tree: ReactTestRenderer, slot: 'before' | 'after', uri: string | undefined): void {
+    act(() => {
+      tree.root.findByType('PhotoSlots' as never).props.onChange(slot, uri);
+    });
+  }
+  function savedPayload(): Record<string, unknown> {
+    return (mowRepository.saveMow as jest.Mock).mock.calls[0][0];
+  }
+
+  it('passes picked photo URIs into the save payload', async () => {
+    const tree = await renderSave(600);
+    setPhoto(tree, 'before', 'file:///tmp/before.jpg');
+    setPhoto(tree, 'after', 'file:///tmp/after.jpg');
+    await pressSave(tree);
+
+    expect(savedPayload()).toEqual(
+      expect.objectContaining({
+        beforePhotoUri: 'file:///tmp/before.jpg',
+        afterPhotoUri: 'file:///tmp/after.jpg',
+      }),
+    );
+  });
+
+  it('omits both photo keys when no photo was added', async () => {
+    const tree = await renderSave(600);
+    await pressSave(tree);
+
+    const payload = savedPayload();
+    expect('beforePhotoUri' in payload).toBe(false);
+    expect('afterPhotoUri' in payload).toBe(false);
   });
 });
 
