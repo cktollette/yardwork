@@ -14,13 +14,14 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import Button from '../components/Button';
 import type { EquipmentType } from '../equipment/models';
-import { mowRepository } from './asyncStorageRepositories';
+import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import { formatDateField, formatTimeField, parseDateTimeField } from './datetimeField';
 import { formatMowDate } from './format';
 import HocField from './HocField';
 import BagsField from './BagsField';
 import ToolTypePicker from './ToolTypePicker';
 import PhotoSlots, { type PhotoSlot } from './PhotoSlots';
+import ZonePicker, { type PickerZone } from './ZonePicker';
 import type { MowEdit } from './editMow';
 import type { Mow } from './models';
 import type { RootStackScreenProps } from './navigation';
@@ -60,6 +61,8 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
   const [beforePhotoUri, setBeforePhotoUri] = useState<string | undefined>(undefined);
   const [afterPhotoUri, setAfterPhotoUri] = useState<string | undefined>(undefined);
+  const [zones, setZones] = useState<PickerZone[]>([]);
+  const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
   const setPhoto = useCallback((slot: PhotoSlot, uri: string | undefined) => {
@@ -69,6 +72,18 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   // The mow's job types as loaded, for diffing on save so an untouched selection
   // produces no patch.
   const initialToolsRef = useRef<EquipmentType[]>([]);
+  // Zone selection is written ONLY on real user interaction — never from a
+  // seeded-vs-stored diff. The seed is a tolerant projection (deleted refs
+  // dropped), so it legitimately differs from what's stored; an untouched picker
+  // must leave zoneIds byte-identical. Tolerance is read-time; writes need intent.
+  const zonesDirtyRef = useRef(false);
+
+  const toggleZone = useCallback((zoneId: string) => {
+    zonesDirtyRef.current = true;
+    setSelectedZoneIds((prev) =>
+      prev.includes(zoneId) ? prev.filter((z) => z !== zoneId) : [...prev, zoneId],
+    );
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -89,6 +104,22 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         const loadedTools = loaded.toolTypes ?? [];
         setToolTypes(loadedTools);
         initialToolsRef.current = loadedTools;
+        // Load the property's zones and seed the coverage selection. Tolerant:
+        // absent zoneIds → all selected (whole lawn); present → those that still
+        // exist; if every referenced zone is gone, fall back to all. This seed
+        // is display-only — it never writes back unless the user interacts.
+        propertyRepository.getById(loaded.propertyId).then((property) => {
+          if (!active) return;
+          const propZones = property?.zones ?? [];
+          const existing = new Set(propZones.map((z) => z.id));
+          const kept = loaded.zoneIds?.filter((id) => existing.has(id)) ?? [];
+          const seeded = loaded.zoneIds == null || kept.length === 0
+            ? propZones.map((z) => z.id) // whole lawn (or all refs deleted)
+            : kept;
+          setZones(propZones);
+          setSelectedZoneIds(seeded);
+          zonesDirtyRef.current = false; // seeding is not an edit
+        });
       }
     });
     return () => {
@@ -160,6 +191,16 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       patch.toolTypes = toolTypes;
     }
 
+    // Zone coverage: write ONLY if the user actually touched the picker (dirty).
+    // Never from a seeded-vs-stored diff — the tolerant seed drops deleted-zone
+    // refs, so it differs from storage whenever a referenced zone was removed;
+    // an untouched picker must leave zoneIds byte-identical. All selected
+    // collapses to absent (whole lawn), never a full-membership array.
+    if (zonesDirtyRef.current) {
+      const isAllZones = selectedZoneIds.length === zones.length;
+      patch.zoneIds = isAllZones ? undefined : selectedZoneIds;
+    }
+
     // Photo slots: include only a changed slot. A replace sends a fresh picker
     // temp URI (the repository copies it + deletes the old file); a clear sends
     // undefined; an unchanged slot is omitted. Compare against the loaded mow.
@@ -183,7 +224,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       setBusy(false);
       Alert.alert("Couldn't save changes", 'Please check the values and try again.');
     }
-  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, clippingBags, toolTypes, beforePhotoUri, afterPhotoUri, navigation]);
+  }, [mow, busy, dateField, timeField, minutesField, notes, hocInches, clippingBags, toolTypes, selectedZoneIds, zones, beforePhotoUri, afterPhotoUri, navigation]);
 
   const handleDelete = useCallback(() => {
     if (!mow || busy) return;
@@ -282,6 +323,19 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       <HocField value={hocInches} onChange={setHocInches} disabled={busy} />
 
       <BagsField value={clippingBags} onChange={setClippingBags} disabled={busy} />
+
+      {/* Zone coverage — multi-zone lawns only (single-zone suppression). */}
+      {zones.length >= 2 && (
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Zones covered</Text>
+          <ZonePicker
+            zones={zones}
+            selectedIds={selectedZoneIds}
+            onToggle={toggleZone}
+            disabled={busy}
+          />
+        </View>
+      )}
 
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Tools (optional)</Text>

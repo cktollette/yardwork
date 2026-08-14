@@ -6,7 +6,7 @@ import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositori
 import type { Property } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
 import { hasLawn } from '../lawn/prompts';
-import { totalAreaSqFt } from '../lawn/zones';
+import { coveredAreaSqFt, totalAreaSqFt } from '../lawn/zones';
 import { colors, radii, spacing, typography } from '../theme';
 import { formatHoc } from '../mow/hoc';
 import {
@@ -54,8 +54,13 @@ export default function StatsScreen({ navigation }: Props) {
         // it's null and those stats stay gated behind "Draw your lawn".
         setStats(
           // Total lawn area = sum of zone areas; 0 (no zones) reads as "no
-          // polygon" inside deriveStats and keeps the area stats gated.
-          deriveStats(mows, { areaSqFt: totalAreaSqFt(prop.zones), now: Date.now() }),
+          // polygon" inside deriveStats and keeps the area stats gated. Each mow
+          // contributes the area IT covered (per its zone selection), resolved
+          // here so partial mows don't skew efficiency.
+          deriveStats(
+            mows.map((m) => ({ ...m, coveredAreaSqFt: coveredAreaSqFt(m.zoneIds, prop.zones) })),
+            { areaSqFt: totalAreaSqFt(prop.zones), now: Date.now() },
+          ),
         );
       });
       return () => {

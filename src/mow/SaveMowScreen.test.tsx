@@ -30,6 +30,12 @@ jest.mock('./PhotoSlots', () => ({
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   default: (props: Record<string, unknown>) => require('react').createElement('PhotoSlots', props),
 }));
+// ZonePicker → prop-carrying host so we can drive onToggle / read selectedIds.
+jest.mock('./ZonePicker', () => ({
+  __esModule: true,
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  default: (props: Record<string, unknown>) => require('react').createElement('ZonePicker', props),
+}));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { mowRepository, propertyRepository } = require('./asyncStorageRepositories');
@@ -230,6 +236,41 @@ describe('SaveMowScreen — before/after photos', () => {
     const payload = savedPayload();
     expect('beforePhotoUri' in payload).toBe(false);
     expect('afterPhotoUri' in payload).toBe(false);
+  });
+});
+
+describe('SaveMowScreen — zone coverage', () => {
+  const TWO_ZONES = { id: 'prop-1', zones: [{ id: 'z1', name: 'Front' }, { id: 'z2', name: 'Back' }] };
+  const zonePicker = (tree: ReactTestRenderer) => tree.root.findByType('ZonePicker' as never);
+  function savedPayload(): Record<string, unknown> {
+    return (mowRepository.saveMow as jest.Mock).mock.calls[0][0];
+  }
+
+  it('shows the selector for a multi-zone lawn, all selected by default', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue(TWO_ZONES);
+    const tree = await renderSave(600);
+    expect(zonePicker(tree).props.selectedIds).toEqual(['z1', 'z2']);
+  });
+
+  it('does not show the selector for a single-zone lawn', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue({ id: 'prop-1', zones: [{ id: 'z1', name: 'Front' }] });
+    const tree = await renderSave(600);
+    expect(tree.root.findAllByType('ZonePicker' as never)).toHaveLength(0);
+  });
+
+  it('omits zoneIds when all zones are selected (whole lawn = absent)', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue(TWO_ZONES);
+    const tree = await renderSave(600);
+    await pressSave(tree);
+    expect('zoneIds' in savedPayload()).toBe(false);
+  });
+
+  it('stores the subset when the user deselects a zone', async () => {
+    propertyRepository.getOrCreateDefault.mockResolvedValue(TWO_ZONES);
+    const tree = await renderSave(600);
+    act(() => zonePicker(tree).props.onToggle('z1')); // deselect z1 → [z2]
+    await pressSave(tree);
+    expect(savedPayload()).toEqual(expect.objectContaining({ zoneIds: ['z2'] }));
   });
 });
 
