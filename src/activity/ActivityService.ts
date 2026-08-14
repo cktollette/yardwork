@@ -17,6 +17,13 @@ export type Activity = {
   steps: number;
   /** Total walking+running distance over the window, in miles (2 decimals). */
   distanceMi: number;
+  /**
+   * Active energy burned over the window, in whole kcal. A THIRD, strictly
+   * optional metric (D-045 unchanged): attached opportunistically only when
+   * present at capture time — its absence never blocks, delays, or fails an
+   * attach, and is never retried on its own. Absent = not present at capture.
+   */
+  activeEnergyKcal?: number;
   /** HealthKit source name when available (e.g. "Apple Watch"); omitted otherwise. */
   source?: string;
   /** ISO-8601 timestamp of when the reading was captured. */
@@ -25,10 +32,11 @@ export type Activity = {
 
 export interface ActivityService {
   /**
-   * Steps + distance recorded within `[startMs, endMs]`, or `null` when nothing
-   * is available (permission denied, query error, HealthKit init failure, or a
-   * window with zero steps AND zero distance). Never throws — callers treat
-   * `null` as "no activity" and move on.
+   * Steps + distance recorded within `[startMs, endMs]` (plus active energy when
+   * present), or `null` when steps/distance are unavailable (permission denied,
+   * query error, HealthKit init failure, or a window with zero steps AND zero
+   * distance). Never throws — callers treat `null` as "no activity" and move on.
+   * Calories are opportunistic and never affect this null/attach decision.
    */
   getActivityForWindow(startMs: number, endMs: number): Promise<Activity | null>;
 }

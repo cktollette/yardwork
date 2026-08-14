@@ -31,6 +31,7 @@ import type { Activity, ActivityService } from './ActivityService';
 // per-query `unit` to the right dimension ('count' for steps, 'mi' for distance).
 const STEP_COUNT = 'HKQuantityTypeIdentifierStepCount' as const;
 const DISTANCE = 'HKQuantityTypeIdentifierDistanceWalkingRunning' as const;
+const ACTIVE_ENERGY = 'HKQuantityTypeIdentifierActiveEnergyBurned' as const;
 
 /** Dev-only diagnostic for the silent null paths. No-op in production. */
 function warn(message: string): void {
@@ -62,15 +63,17 @@ export class HealthKitActivityService implements ActivityService {
   private authPromise: Promise<boolean> | null = null;
 
   /**
-   * Read-only authorization: step count and walking+running distance only.
-   * Resolves to HealthKit's `requestAuthorization` result. NOTE: for READ
-   * scopes iOS never reveals whether the user actually granted access, so this
-   * boolean is not a reliable "granted" signal — it is logged for diagnostics
-   * only, and we never gate the query on it.
+   * Read-only authorization: step count, walking+running distance, and active
+   * energy (calories). Resolves to HealthKit's `requestAuthorization` result.
+   * NOTE: for READ scopes iOS never reveals whether the user actually granted
+   * access, so this boolean is not a reliable "granted" signal — it is logged
+   * for diagnostics only, and we never gate the query on it.
    */
   private ensureAuthorization(): Promise<boolean> {
     if (!this.authPromise) {
-      this.authPromise = requestAuthorization({ toRead: [STEP_COUNT, DISTANCE] }).catch(
+      this.authPromise = requestAuthorization({
+        toRead: [STEP_COUNT, DISTANCE, ACTIVE_ENERGY],
+      }).catch(
         (error) => {
           // Reset so a later capture can retry a fresh authorization.
           this.authPromise = null;
@@ -94,14 +97,28 @@ export class HealthKitActivityService implements ActivityService {
       // match the type map; the window goes in as Date objects under
       // filter.date, which native turns into predicateForSamples(withStart:end:).
       const filter = { date: { startDate: new Date(startMs), endDate: new Date(endMs) } };
-      const [steps, distance] = await Promise.all([
+      const [steps, distance, energy] = await Promise.all([
         queryQuantitySamples(STEP_COUNT, { filter, unit: 'count', limit: 0 }),
         queryQuantitySamples(DISTANCE, { filter, unit: 'mi', limit: 0 }),
+        // Calories is a THIRD, strictly OPPORTUNISTIC metric (D-045 unchanged):
+        // its query must never fail the attach, so it can't reject the batch. A
+        // rejection is swallowed to an empty result — but LOGGED (D-056 tolerant-
+        // read style), so a persistently failing calorie query is observable in
+        // dev rather than silently producing calorie-less captures forever.
+        // Behavior is unchanged: still never blocks, never retries.
+        queryQuantitySamples(ACTIVE_ENERGY, { filter, unit: 'kcal', limit: 0 }).catch(
+          (error: unknown) => {
+            const e = error as { name?: string; message?: string } | null;
+            warn(`calories query threw (omitting calories) — ${e?.name ?? 'Error'}: ${e?.message ?? String(error)}`);
+            return [] as Sample[];
+          },
+        ),
       ]);
 
       const totalSteps = Math.round(sumQuantities(steps));
       const totalMiles = sumQuantities(distance);
       const distanceMi = Math.round(totalMiles * 100) / 100;
+      const activeEnergyKcal = Math.round(sumQuantities(energy));
 
       // Require BOTH metrics before attaching. Step count and walking/running
       // distance are SEPARATE HealthKit quantities whose samples the iPhone's
@@ -124,10 +141,16 @@ export class HealthKitActivityService implements ActivityService {
       }
 
       const source = firstSource(steps) ?? firstSource(distance);
-      warn(`read: steps=${totalSteps} distanceMi=${distanceMi} source=${source ?? 'unknown'}`);
+      warn(
+        `read: steps=${totalSteps} distanceMi=${distanceMi} ` +
+          `activeEnergyKcal=${activeEnergyKcal} source=${source ?? 'unknown'}`,
+      );
+      // Calories attaches only when present; its absence is a complete, successful
+      // capture (steps+distance already passed the D-045 gate above).
       return {
         steps: totalSteps,
         distanceMi,
+        ...(activeEnergyKcal > 0 ? { activeEnergyKcal } : {}),
         ...(source ? { source } : {}),
         capturedAt: new Date().toISOString(),
       };
