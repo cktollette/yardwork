@@ -4,10 +4,11 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { propertyRepository } from './asyncStorageRepositories';
 import type { RootStackParamList } from './navigation';
 import { buildDraftMow, computeElapsedSeconds } from './timer';
+import { start as startTimer } from './mowSegments';
 import {
-  clearRunningTimer,
-  loadRunningTimer,
-  saveRunningTimer,
+  clearTimerState,
+  loadTimerState,
+  saveTimerState,
 } from './timerStorage';
 import {
   dismissOnboarding,
@@ -38,8 +39,8 @@ export default function MowTimerScreen({ navigation }: Props) {
   // On mount, restore an in-progress timer persisted before a crash/force-quit.
   useEffect(() => {
     let active = true;
-    loadRunningTimer().then((restored) => {
-      if (active && restored !== null) setStartedAt(restored);
+    loadTimerState().then((restored) => {
+      if (active && restored?.runningSince != null) setStartedAt(restored.runningSince);
     });
     return () => {
       active = false;
@@ -104,7 +105,7 @@ export default function MowTimerScreen({ navigation }: Props) {
   const handleStart = useCallback(() => {
     const now = Date.now();
     setStartedAt(now);
-    void saveRunningTimer(now);
+    void saveTimerState(startTimer(now));
   }, []);
 
   const handleStop = useCallback(() => {
@@ -113,7 +114,7 @@ export default function MowTimerScreen({ navigation }: Props) {
     // The mow is done: reset the UI and clear the persisted running timer, then
     // hand the draft to the Save Mow screen, which persists it (or discards).
     setStartedAt(null);
-    void clearRunningTimer();
+    void clearTimerState();
     navigation.navigate('SaveMow', { draft });
   }, [startedAt, navigation]);
 
