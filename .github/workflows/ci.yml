@@ -17,4 +17,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
-      - run: npm test -- --ci
+      # Cap workers at 50% of the runner's cores: the shared ubuntu-latest runner
+      # (~2-4 vCPU) starves the event loop when jest fans all suites across
+      # workers, intermittently tripping a heavy async screen test's 5s wall-clock
+      # timeout (flaky failure on PR #46). Cutting contention is the root-cause fix;
+      # widen timeouts only if flakes persist. CI-only — local `npm test` unchanged.
+      - run: npm test -- --ci --maxWorkers=50%
