@@ -34,6 +34,13 @@ export interface StatsMow {
   durationSeconds: number;
   /** optional height of cut, in inches; absent means "not set" */
   hocInches?: number;
+  /**
+   * The area (sq ft) this mow covered, per its zone selection — the caller
+   * resolves it via coveredAreaSqFt(mow.zoneIds, zones) before calling. Absent
+   * falls back to the whole-lawn `areaSqFt` (so a mow that didn't select zones,
+   * or a caller that doesn't resolve coverage, behaves exactly as before).
+   */
+  coveredAreaSqFt?: number;
 }
 
 export interface DeriveStatsOptions {
@@ -125,11 +132,16 @@ export function deriveStats(mows: StatsMow[], opts: DeriveStatsOptions): Stats {
   const lifetimeHours = totalSeconds / 3600;
   const totalMinutes = totalSeconds / 60;
 
-  // Area-based stats are gated on a polygon (positive area).
-  const lifetimeAreaSqFt = area !== null ? area * lifetimeMows : null;
+  // Area-based stats are gated on a polygon (positive lawn area). Each mow
+  // contributes the area IT covered (per its zone selection); a mow with no
+  // resolved coverage falls back to the whole lawn, so a log of whole-lawn mows
+  // reduces to the old `area × count`. Partial mows no longer skew the totals.
+  const totalCoveredAreaSqFt =
+    area !== null ? mows.reduce((sum, m) => sum + (m.coveredAreaSqFt ?? area), 0) : null;
+  const lifetimeAreaSqFt = totalCoveredAreaSqFt;
   const sqFtPerMinute =
-    area !== null && lifetimeMows > 0 && totalMinutes > 0
-      ? (area * lifetimeMows) / totalMinutes
+    totalCoveredAreaSqFt !== null && lifetimeMows > 0 && totalMinutes > 0
+      ? totalCoveredAreaSqFt / totalMinutes
       : null;
 
   // Averages are gated on a minimum history.
