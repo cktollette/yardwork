@@ -59,7 +59,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //     Purely additive — absent reads as "the whole lawn" (resolved at read
 //     time), so no data transform runs on upgrade; older mows keep no zoneIds
 //     and are never backfilled (absence IS the semantic).
-export const SCHEMA_VERSION = 13;
+// v14: Mow.activity gained optional `activeEnergyKcal` (calories, a third
+//     opportunistic HealthKit metric alongside steps/distance). Purely additive
+//     — absent reads as "no calories captured", so no data transform runs on
+//     upgrade; older activity objects (with or without the field) load cleanly
+//     and are never backfilled.
+export const SCHEMA_VERSION = 14;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**

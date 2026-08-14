@@ -11,6 +11,10 @@ const HealthKit = require('@kingstinct/react-native-healthkit');
 
 const STEP_ID = 'HKQuantityTypeIdentifierStepCount';
 const DISTANCE_ID = 'HKQuantityTypeIdentifierDistanceWalkingRunning';
+const ENERGY_ID = 'HKQuantityTypeIdentifierActiveEnergyBurned';
+
+// Sums to 312 kcal.
+const ENERGY_SAMPLES = [{ quantity: 200 }, { quantity: 112 }];
 
 const STEP_SAMPLES = [
   { quantity: 2000, sourceRevision: { source: { name: 'Apple Watch' } } },
@@ -23,10 +27,11 @@ const START = Date.parse('2026-07-20T10:00:00Z');
 const END = START + 40 * 60 * 1000;
 
 /** Route queryQuantitySamples by identifier to the given per-metric results. */
-function routeQuery(steps: unknown[], distance: unknown[]) {
+function routeQuery(steps: unknown[], distance: unknown[], energy: unknown[] = []) {
   HealthKit.queryQuantitySamples.mockImplementation((id: string) => {
     if (id === STEP_ID) return Promise.resolve(steps);
     if (id === DISTANCE_ID) return Promise.resolve(distance);
+    if (id === ENERGY_ID) return Promise.resolve(energy);
     return Promise.resolve([]);
   });
 }
@@ -65,7 +70,7 @@ describe('HealthKitActivityService', () => {
     await new HealthKitActivityService().getActivityForWindow(START, END);
 
     const arg = HealthKit.requestAuthorization.mock.calls[0][0];
-    expect(arg.toRead).toEqual([STEP_ID, DISTANCE_ID]);
+    expect(arg.toRead).toEqual([STEP_ID, DISTANCE_ID, ENERGY_ID]);
     expect(arg.toShare).toBeUndefined();
   });
 
@@ -120,6 +125,52 @@ describe('HealthKitActivityService', () => {
       source: 'Apple Watch',
       capturedAt: expect.any(String),
     });
+  });
+
+  // --- Opportunistic calories (a third metric; D-045 both-metrics rule unchanged) ---
+
+  it('attaches active energy (calories) when present at capture time', async () => {
+    routeQuery(STEP_SAMPLES, DISTANCE_SAMPLES, ENERGY_SAMPLES);
+
+    const activity = await new HealthKitActivityService().getActivityForWindow(START, END);
+    expect(activity?.activeEnergyKcal).toBe(312); // whole kcal
+    // Calories is queried in kcal.
+    const energyCall = HealthKit.queryQuantitySamples.mock.calls.find((c: unknown[]) => c[0] === ENERGY_ID);
+    expect(energyCall[1].unit).toBe('kcal');
+  });
+
+  it('is a complete, successful capture with steps+distance and NO calories', async () => {
+    routeQuery(STEP_SAMPLES, DISTANCE_SAMPLES, []); // energy not present
+
+    const activity = await new HealthKitActivityService().getActivityForWindow(START, END);
+    expect(activity).not.toBeNull();
+    expect(activity?.steps).toBe(4213);
+    expect(activity?.distanceMi).toBe(1.87);
+    expect('activeEnergyKcal' in (activity as object)).toBe(false); // omitted, not zero
+  });
+
+  it('never fails the attach when the calories query throws (isolated + logged)', async () => {
+    HealthKit.queryQuantitySamples.mockImplementation((id: string) => {
+      if (id === STEP_ID) return Promise.resolve(STEP_SAMPLES);
+      if (id === DISTANCE_ID) return Promise.resolve(DISTANCE_SAMPLES);
+      if (id === ENERGY_ID) return Promise.reject(new Error('energy query failed'));
+      return Promise.resolve([]);
+    });
+
+    const activity = await new HealthKitActivityService().getActivityForWindow(START, END);
+    // Steps+distance still attach; calories omitted.
+    expect(activity?.steps).toBe(4213);
+    expect(activity?.activeEnergyKcal).toBeUndefined();
+    // The failure is observable in dev (not swallowed silently).
+    const logged = (console.warn as unknown as jest.Mock).mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('calories query threw');
+  });
+
+  it('does NOT attach a calories-only partial (no steps/distance) even with energy', async () => {
+    routeQuery([], [], ENERGY_SAMPLES); // only calories present
+
+    // The D-045 both-metrics gate holds: no steps+distance → null, no attach.
+    expect(await new HealthKitActivityService().getActivityForWindow(START, END)).toBeNull();
   });
 
   it('logs a [activity] read line on the success path (steps/distanceMi/source)', async () => {

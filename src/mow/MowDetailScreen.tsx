@@ -313,9 +313,14 @@ export default function MowDetailScreen({ navigation, route }: Props) {
       {mow.activity && (
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Activity</Text>
-          {/* Capture-only provenance (D-042) — read-only, never editable. */}
+          {/* Capture-only provenance (D-042) — read-only, never editable. Calories
+              (D-045 opportunistic) append only when present; absent = silent
+              omission, per the card metadata convention. */}
           <Text style={styles.weatherValue} testID="mow-activity">
-            {`${formatThousands(mow.activity.steps)} steps · ${mow.activity.distanceMi} mi`}
+            {`${formatThousands(mow.activity.steps)} steps · ${mow.activity.distanceMi} mi` +
+              (mow.activity.activeEnergyKcal != null
+                ? ` · ${formatThousands(mow.activity.activeEnergyKcal)} cal`
+                : '')}
           </Text>
         </View>
       )}

@@ -369,7 +369,17 @@ describe('MowDetailScreen — activity display', () => {
     mowRepository.getMowById.mockResolvedValue(mow({ activity: ACTIVITY }));
 
     const tree = await renderDetail();
+    // No calories on this fixture → the "· N cal" suffix is silently omitted.
     expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi');
+  });
+
+  it('appends calories to the activity line when present', async () => {
+    mowRepository.getMowById.mockResolvedValue(
+      mow({ activity: { ...ACTIVITY, activeEnergyKcal: 312 } }),
+    );
+
+    const tree = await renderDetail();
+    expect(activityLine(tree)).toBe('4,213 steps · 1.87 mi · 312 cal');
   });
 
   it('renders nothing when the mow has no activity', async () => {
