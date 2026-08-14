@@ -4,6 +4,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
 import HocChip from './HocChip';
+import TempChip from './TempChip';
 import type { Mow } from './models';
 import type { RootTabScreenProps } from './navigation';
 import ToolBadges from './ToolBadges';
@@ -60,6 +61,9 @@ export default function MowListScreen({ navigation }: Props) {
             <View style={styles.rowHeaderLeft}>
               <Text style={styles.date}>{formatMowDate(item.startedAt)}</Text>
               {item.hocInches != null ? <HocChip value={item.hocInches} /> : null}
+              {/* Captured temperature (weather is capture-only provenance, D-040).
+                  Omitted entirely when a mow has no weather — no placeholder. */}
+              {item.weather ? <TempChip tempF={item.weather.tempF} /> : null}
             </View>
             <Text style={styles.duration}>
               {formatDuration(item.durationSeconds)}

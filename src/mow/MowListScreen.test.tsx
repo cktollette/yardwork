@@ -37,6 +37,28 @@ async function renderList(): Promise<ReactTestRenderer> {
 
 beforeEach(() => jest.clearAllMocks());
 
+describe('MowListScreen — captured temperature', () => {
+  const WEATHER = { tempF: 72, condition: 'Clear', humidity: 40, capturedAt: 'x' };
+
+  it('renders the captured temperature on the card when weather is present', async () => {
+    mowRepository.listMows.mockResolvedValue([mow({ weather: WEATHER })]);
+
+    const tree = await renderList();
+    // The chip is present AND shows the actual value.
+    expect(tree.root.findByProps({ testID: 'mow-temp' })).toBeTruthy();
+    expect(JSON.stringify(tree.toJSON())).toContain('72°F');
+  });
+
+  it('omits the temperature entirely when the mow has no weather', async () => {
+    mowRepository.listMows.mockResolvedValue([mow({ weather: undefined })]);
+
+    const tree = await renderList();
+    // No chip, no placeholder, no stray unit.
+    expect(tree.root.findAllByProps({ testID: 'mow-temp' })).toHaveLength(0);
+    expect(JSON.stringify(tree.toJSON())).not.toContain('°F');
+  });
+});
+
 describe('MowListScreen — job-type badges', () => {
   it('renders a badge per job type recorded on the mow', async () => {
     mowRepository.listMows.mockResolvedValue([mow({ toolTypes: ['mower', 'blower'] })]);
