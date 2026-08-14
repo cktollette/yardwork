@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { computeElapsedSeconds } from './timer';
+import { activeDurationSeconds, pause, start, type TimerState } from './mowSegments';
 import {
   RUNNING_TIMER_KEY,
-  clearRunningTimer,
-  loadRunningTimer,
-  saveRunningTimer,
+  clearTimerState,
+  loadTimerState,
+  saveTimerState,
 } from './timerStorage';
 
 // In-memory AsyncStorage mock shipped with the async-storage package.
@@ -16,50 +16,52 @@ beforeEach(async () => {
   await AsyncStorage.clear();
 });
 
-describe('restoring a running timer from persistence', () => {
-  it('round-trips a startedAt so the timer resumes as running', async () => {
-    const startedAt = 1_700_000_000_000;
-    await saveRunningTimer(startedAt);
+const T0 = 1_700_000_000_000;
 
-    // Simulate app relaunch: only the persisted value survives.
-    const restored = await loadRunningTimer();
-    expect(restored).toBe(startedAt);
-    expect(restored).not.toBeNull(); // non-null => timer is considered running
+describe('restoring a running timer', () => {
+  it('round-trips a running state; elapsed derives from the open interval', async () => {
+    await saveTimerState(start(T0));
+    const restored = await loadTimerState();
+    expect(restored).toEqual({ segments: [], runningSince: T0 });
+    // App was killed; 41 minutes pass; elapsed is derived, not a stored count.
+    expect(activeDurationSeconds(restored as TimerState, T0 + 41 * 60 * 1000)).toBe(2460);
+  });
+});
+
+describe('restoring a PAUSED timer (survives app kill, frozen)', () => {
+  it('restores frozen active duration independent of now', async () => {
+    const paused = pause(start(T0), T0 + 300_000); // 5 min active, then paused
+    await saveTimerState(paused);
+    const restored = await loadTimerState();
+    expect(restored?.runningSince).toBeNull(); // paused
+    expect(activeDurationSeconds(restored as TimerState, T0 + 999_000)).toBe(300); // frozen
+  });
+});
+
+describe('legacy format tolerance', () => {
+  it('restores a bare startedAt number as a running single-open-segment timer', async () => {
+    // Exactly what the pre-pause build wrote: String(startedAt).
+    await AsyncStorage.setItem(RUNNING_TIMER_KEY, String(T0));
+    const restored = await loadTimerState();
+    expect(restored).toEqual({ segments: [], runningSince: T0 });
+  });
+});
+
+describe('empty / corrupt / cleared', () => {
+  it('returns null when nothing is persisted', async () => {
+    expect(await loadTimerState()).toBeNull();
   });
 
-  it('restores full elapsed time after the app was closed for 40+ minutes', async () => {
-    const startedAt = 1_700_000_000_000;
-    await saveRunningTimer(startedAt);
-
-    // App was killed; 41 minutes pass; app relaunches.
-    const now = startedAt + 41 * 60 * 1000;
-
-    const restored = await loadRunningTimer();
-    expect(restored).toBe(startedAt);
-    // Elapsed is derived from the restored startedAt, not from any tick count,
-    // so no time is lost across the closure.
-    expect(computeElapsedSeconds(restored as number, now)).toBe(2460); // 41 * 60
+  it('returns null and does not throw on corrupt data', async () => {
+    for (const bad of ['not-a-number', '', '{"lol":true}', '{"segments":"x"}', '0']) {
+      await AsyncStorage.setItem(RUNNING_TIMER_KEY, bad);
+      await expect(loadTimerState()).resolves.toBeNull();
+    }
   });
 
-  it('returns null (no timer) when nothing is persisted', async () => {
-    expect(await loadRunningTimer()).toBeNull();
-  });
-
-  it('returns null and does not throw on corrupt / non-numeric persisted data', async () => {
-    // Directly plant garbage under the key, as a corrupted write might.
-    await AsyncStorage.setItem(RUNNING_TIMER_KEY, 'not-a-number');
-    await expect(loadRunningTimer()).resolves.toBeNull();
-
-    await AsyncStorage.setItem(RUNNING_TIMER_KEY, '{"lol":true}');
-    await expect(loadRunningTimer()).resolves.toBeNull();
-
-    await AsyncStorage.setItem(RUNNING_TIMER_KEY, '');
-    await expect(loadRunningTimer()).resolves.toBeNull();
-  });
-
-  it('clears the persisted timer on stop', async () => {
-    await saveRunningTimer(1_700_000_000_000);
-    await clearRunningTimer();
-    expect(await loadRunningTimer()).toBeNull();
+  it('clears the persisted timer', async () => {
+    await saveTimerState(start(T0));
+    await clearTimerState();
+    expect(await loadTimerState()).toBeNull();
   });
 });

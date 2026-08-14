@@ -1,40 +1,69 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Segment, TimerState } from './mowSegments';
 
 /**
- * Persistence for an in-progress mow timer.
+ * Persistence for an in-progress (possibly paused) mow timer.
  *
- * We persist only `startedAt` (a single epoch-ms number). Because elapsed
- * time is always recomputed as `now - startedAt`, restoring after a
- * force-quit or crash needs nothing more than this one value.
+ * We persist the whole TimerState — the closed segments plus `runningSince` —
+ * because a paused mow has no single "started" instant. Active time is still
+ * derived from timestamps (D-011), never stored as an accumulated count, so a
+ * crash/force-quit loses nothing: a running timer restores its open interval, a
+ * paused timer restores frozen.
  */
 export const RUNNING_TIMER_KEY = '@yardwork/mow-timer/running';
 
-/** Persist the start timestamp of a running timer. */
-export async function saveRunningTimer(startedAt: number): Promise<void> {
-  await AsyncStorage.setItem(RUNNING_TIMER_KEY, String(startedAt));
+/** Persist the current timer state. */
+export async function saveTimerState(state: TimerState): Promise<void> {
+  await AsyncStorage.setItem(RUNNING_TIMER_KEY, JSON.stringify(state));
 }
 
 /**
- * Load a persisted running-timer start timestamp.
+ * Load a persisted timer state, or `null` when there is no timer or the stored
+ * value is missing/corrupt. Never throws — a bad value must not crash startup.
  *
- * Returns `null` when there is no running timer OR the stored value is
- * missing/corrupt/non-numeric. Never throws — a bad value must not crash
- * app startup; it simply means "no timer to restore".
+ * Tolerant of the LEGACY format (pre-pause): a bare `startedAt` number restores
+ * as a running, single-open-segment timer, so a mow in progress across the app
+ * update isn't lost.
  */
-export async function loadRunningTimer(): Promise<number | null> {
+export async function loadTimerState(): Promise<TimerState | null> {
   try {
     const raw = await AsyncStorage.getItem(RUNNING_TIMER_KEY);
     if (raw == null) return null;
-    const parsed = Number(raw);
-    // Reject NaN/Infinity and non-positive values (a real epoch is large + positive).
-    if (!Number.isFinite(parsed) || parsed <= 0) return null;
-    return parsed;
+    const parsed: unknown = JSON.parse(raw);
+
+    // Legacy: a bare startedAt number = a running timer with one open interval.
+    if (typeof parsed === 'number') {
+      return Number.isFinite(parsed) && parsed > 0
+        ? { segments: [], runningSince: parsed }
+        : null;
+    }
+    return isValidTimerState(parsed) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-/** Clear the persisted running timer (called on Stop). */
-export async function clearRunningTimer(): Promise<void> {
+/** Clear the persisted timer (called on Finalize). */
+export async function clearTimerState(): Promise<void> {
   await AsyncStorage.removeItem(RUNNING_TIMER_KEY);
+}
+
+/** Structural validation — a bad shape reads as "no timer". */
+function isValidTimerState(value: unknown): value is TimerState {
+  if (value == null || typeof value !== 'object') return false;
+  const s = value as { segments?: unknown; runningSince?: unknown };
+  if (!Array.isArray(s.segments)) return false;
+  const runningOk =
+    s.runningSince === null ||
+    (typeof s.runningSince === 'number' && Number.isFinite(s.runningSince));
+  if (!runningOk) return false;
+  return s.segments.every((seg) => {
+    const p = seg as Partial<Segment>;
+    return (
+      seg != null &&
+      typeof seg === 'object' &&
+      typeof p.startedAt === 'number' &&
+      typeof p.endedAt === 'number'
+    );
+  });
 }

@@ -1,13 +1,23 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { propertyRepository } from './asyncStorageRepositories';
 import type { RootStackParamList } from './navigation';
-import { buildDraftMow, computeElapsedSeconds } from './timer';
 import {
-  clearRunningTimer,
-  loadRunningTimer,
-  saveRunningTimer,
+  IDLE_TIMER,
+  activeDurationSeconds,
+  finalize,
+  isPaused,
+  isRunning as isTimerRunning,
+  pause,
+  resume,
+  start as startTimer,
+  type TimerState,
+} from './mowSegments';
+import {
+  clearTimerState,
+  loadTimerState,
+  saveTimerState,
 } from './timerStorage';
 import {
   dismissOnboarding,
@@ -29,17 +39,20 @@ function formatElapsed(totalSeconds: number): string {
 }
 
 export default function MowTimerScreen({ navigation }: Props) {
-  // `startedAt` is the single source of truth: null = idle, number = running.
-  const [startedAt, setStartedAt] = useState<number | null>(null);
+  // The whole timer state (segments + open interval) is the source of truth.
+  const [timer, setTimer] = useState<TimerState>(IDLE_TIMER);
   // Bumped by the cosmetic interval purely to trigger re-renders.
   const [, setTick] = useState(0);
-  const isRunning = startedAt !== null;
+  const running = isTimerRunning(timer);
+  const paused = isPaused(timer);
+  const idle = !running && !paused;
 
-  // On mount, restore an in-progress timer persisted before a crash/force-quit.
+  // On mount, restore an in-progress timer persisted before a crash/force-quit —
+  // running (resumes its open interval) OR paused (frozen).
   useEffect(() => {
     let active = true;
-    loadRunningTimer().then((restored) => {
-      if (active && restored !== null) setStartedAt(restored);
+    loadTimerState().then((restored) => {
+      if (active && restored) setTimer(restored);
     });
     return () => {
       active = false;
@@ -93,52 +106,78 @@ export default function MowTimerScreen({ navigation }: Props) {
     };
   }, [navigation]);
 
-  // Cosmetic 1s interval while running. It ONLY forces a re-render; all elapsed
-  // time is derived from `startedAt`, so a missed/killed tick loses no time.
+  // Cosmetic 1s interval ONLY while running — so a paused timer's display is
+  // frozen. All elapsed time is derived from timestamps, so a missed/killed
+  // tick loses no time (D-011).
   useEffect(() => {
-    if (!isRunning) return;
+    if (!running) return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [isRunning]);
+  }, [running]);
 
-  const handleStart = useCallback(() => {
-    const now = Date.now();
-    setStartedAt(now);
-    void saveRunningTimer(now);
-  }, []);
+  // Each transition updates state AND persists it, so a crash/kill restores the
+  // exact running-or-paused state. Handlers read the current `timer` closure.
+  const apply = (next: TimerState) => {
+    setTimer(next);
+    void saveTimerState(next);
+  };
+  const handleStart = () => apply(startTimer(Date.now()));
+  const handlePause = () => apply(pause(timer, Date.now()));
+  const handleResume = () => apply(resume(timer, Date.now()));
 
-  const handleStop = useCallback(() => {
-    if (startedAt === null) return;
-    const draft = buildDraftMow(startedAt, Date.now());
-    // The mow is done: reset the UI and clear the persisted running timer, then
-    // hand the draft to the Save Mow screen, which persists it (or discards).
-    setStartedAt(null);
-    void clearRunningTimer();
+  const handleFinalize = () => {
+    // Collapse the segments into a draft and hand it to Save (exactly as Stop
+    // did): reset the UI and clear the persisted timer. Finalize is safe while
+    // paused (no open interval to close).
+    const draft = finalize(timer, Date.now());
+    setTimer(IDLE_TIMER);
+    void clearTimerState();
     navigation.navigate('SaveMow', { draft });
-  }, [startedAt, navigation]);
+  };
 
-  const elapsedSeconds = isRunning
-    ? computeElapsedSeconds(startedAt, Date.now())
-    : 0;
+  const elapsedSeconds = activeDurationSeconds(timer, Date.now());
+  const label = running ? 'Mowing' : paused ? 'Paused' : 'Ready to mow';
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{isRunning ? 'Mowing' : 'Ready to mow'}</Text>
+      <Text style={styles.label}>{label}</Text>
       <Text style={styles.time} accessibilityLabel={`Elapsed ${formatElapsed(elapsedSeconds)}`}>
         {formatElapsed(elapsedSeconds)}
       </Text>
-      <Pressable
-        onPress={isRunning ? handleStop : handleStart}
-        style={({ pressed }) => [
-          styles.button,
-          isRunning ? styles.stop : styles.start,
-          pressed && styles.pressed,
-        ]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.buttonText}>{isRunning ? 'Stop' : 'Start'}</Text>
-      </Pressable>
-      {!isRunning && (
+
+      {idle ? (
+        <Pressable
+          onPress={handleStart}
+          style={({ pressed }) => [styles.button, styles.start, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Start"
+        >
+          <Text style={styles.buttonText}>Start</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.controls}>
+          {/* The green button toggles momentum (Pause/Resume); Finalize (outline)
+              ends the mow into the save flow and is available in both states. */}
+          <Pressable
+            onPress={running ? handlePause : handleResume}
+            style={({ pressed }) => [styles.button, styles.start, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={running ? 'Pause' : 'Resume'}
+          >
+            <Text style={styles.buttonText}>{running ? 'Pause' : 'Resume'}</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleFinalize}
+            style={({ pressed }) => [styles.button, styles.secondary, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Finalize"
+          >
+            <Text style={[styles.buttonText, styles.secondaryText]}>Finalize</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {idle && (
         <View style={styles.links}>
           <Pressable
             onPress={() => navigation.navigate('Tabs', { screen: 'Stats' })}
@@ -175,11 +214,21 @@ const styles = StyleSheet.create({
   },
   button: {
     paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xxl * 2,
+    paddingHorizontal: spacing.xxl,
     borderRadius: radii.pill,
   },
   start: { backgroundColor: colors.primary },
-  stop: { backgroundColor: colors.destructive },
+  secondary: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  secondaryText: { color: colors.ink },
+  controls: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    alignItems: 'center',
+  },
   pressed: { opacity: 0.8 },
   buttonText: {
     color: colors.textOnColor,
