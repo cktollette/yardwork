@@ -16,6 +16,10 @@ import { normalizeToolTypes } from './tools';
  *    patch value is `undefined`. A patch value of `0` sets zero, not clears.
  *  - `toolTypes` sets the job types performed (deduped/ordered), or clears them
  *    when the patch value is empty/undefined.
+ *  - `zoneIds` sets which zones the mow covered (deduped), or clears to "whole
+ *    lawn" (absent) when the value is empty/undefined. The save/edit flow
+ *    collapses an all-zones selection to `undefined` before calling this, so a
+ *    full-membership array is never stored (see models.ts).
  *  - `beforePhotoUri` / `afterPhotoUri` set the slot's stored URI, or clear it
  *    when the patch value is `undefined`. The value here is ALREADY an app-owned
  *    URI: the repository copies the picker temp URI into the store (and deletes
@@ -45,6 +49,12 @@ export interface MowEdit {
    * `undefined` clears them. Omit the key to leave the tools as-is.
    */
   toolTypes?: EquipmentType[];
+  /**
+   * New zone coverage (deduped). An empty array or `undefined` clears it to
+   * "whole lawn" (absent). Omit the key to leave coverage as-is — the edit flow
+   * only sends this on real picker interaction, never from a seeded diff.
+   */
+  zoneIds?: string[];
   /**
    * New before/after photo URIs (already app-owned; the repository resolves
    * picker temp URIs to these before applying). An explicit `undefined` clears
@@ -97,6 +107,15 @@ export function applyMowEdit(mow: Mow, patch: MowEdit): Mow {
     const normalized = normalizeToolTypes(patch.toolTypes);
     if (normalized) next.toolTypes = normalized;
     else delete next.toolTypes;
+  }
+
+  // Zone coverage: a non-empty (deduped) array sets it; empty/undefined clears
+  // to "whole lawn" (absent). The screen collapses an all-zones selection to
+  // undefined before this, so a full-membership array never reaches storage.
+  if ('zoneIds' in patch) {
+    const ids = patch.zoneIds ? [...new Set(patch.zoneIds)] : [];
+    if (ids.length > 0) next.zoneIds = ids;
+    else delete next.zoneIds;
   }
 
   // Photo slots: present string sets, present-undefined clears (the repository

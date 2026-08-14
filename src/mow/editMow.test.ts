@@ -154,6 +154,22 @@ describe('applyMowEdit', () => {
     expect(applyMowEdit(mow, { notes: 'x' }).beforePhotoUri).toBe('file:///app/mow-photos/b.jpg');
   });
 
+  it('sets zoneIds from a patch, deduping', () => {
+    const mow = makeMow();
+    expect(applyMowEdit(mow, { zoneIds: ['a', 'b', 'a'] }).zoneIds).toEqual(['a', 'b']);
+  });
+
+  it('clears zoneIds to whole-lawn (absent) for an empty or undefined value', () => {
+    const mow = makeMow({ zoneIds: ['a', 'b'] });
+    expect('zoneIds' in applyMowEdit(mow, { zoneIds: [] })).toBe(false);
+    expect('zoneIds' in applyMowEdit(mow, { zoneIds: undefined })).toBe(false);
+  });
+
+  it('leaves zoneIds untouched when the patch omits the key', () => {
+    const mow = makeMow({ zoneIds: ['a'] });
+    expect(applyMowEdit(mow, { notes: 'x' }).zoneIds).toEqual(['a']);
+  });
+
   it('rejects an edit that makes endedAt <= startedAt', () => {
     const mow = makeMow();
     expect(() => applyMowEdit(mow, { durationSeconds: 0 })).toThrow();

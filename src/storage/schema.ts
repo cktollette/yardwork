@@ -55,7 +55,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //     file URIs; the record stores URIs only, never image data). Purely
 //     additive — absent reads as "no photo", so no data transform runs on
 //     upgrade; older records without the fields load cleanly.
-export const SCHEMA_VERSION = 12;
+// v13: Mow.`zoneIds` graduated from reserved to live (per-mow zone selection).
+//     Purely additive — absent reads as "the whole lawn" (resolved at read
+//     time), so no data transform runs on upgrade; older mows keep no zoneIds
+//     and are never backfilled (absence IS the semantic).
+export const SCHEMA_VERSION = 13;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**
