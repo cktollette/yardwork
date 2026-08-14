@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Klippa — join the lawn beta on TestFlight</title>
-  <meta name="description" content="Strava for people who mow their own lawn. Track every mow, map your yard on satellite, build your streak. Now in beta on TestFlight.">
+  <title>Klippa — Every mow counts</title>
+  <meta name="description" content="The tracker for people who mow their own lawn and do it right. Log every mow, map your yard on satellite, build your streak.">
 
   <!-- Favicon / home-screen icon -->
   <link rel="icon" type="image/png" href="favicon.png">
@@ -13,12 +13,12 @@
   <!-- Social share (Open Graph + Twitter) -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://getklippa.com/">
-  <meta property="og:title" content="Klippa — where lawns happen">
-  <meta property="og:description" content="Strava for people who mow their own lawn. Track every mow, map your yard on satellite, build your streak. Now in beta on TestFlight.">
+  <meta property="og:title" content="Klippa — Every mow counts">
+  <meta property="og:description" content="The tracker for people who mow their own lawn and do it right. Log every mow, map your yard on satellite, build your streak.">
   <meta property="og:image" content="https://getklippa.com/og.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Klippa — where lawns happen">
-  <meta name="twitter:description" content="Strava for people who mow their own lawn. Now in beta on TestFlight.">
+  <meta name="twitter:title" content="Klippa — Every mow counts">
+  <meta name="twitter:description" content="The tracker for people who mow their own lawn and do it right. Log every mow, map your yard on satellite, build your streak.">
   <meta name="twitter:image" content="https://getklippa.com/og.png">
 
   <style>
@@ -80,9 +80,15 @@
     .wordmark {
       display: block;
       margin: 0 auto;
-      height: 56px;      /* sized by height (the PNG is 1376x768); max-width is a cap */
+      height: 96px;      /* sized by height (the PNG is 1376x768); max-width is a cap.
+                            Enlarged ~1.7x (mobile) / 2x (desktop) from the original 56px;
+                            ~172x96 here, ~201x112 on desktop — both well under the cap,
+                            so the baked #F2EDEB PNG never reveals an edge. */
       width: auto;
       max-width: 320px;
+    }
+    @media (min-width: 600px) {
+      .wordmark { height: 112px; }
     }
     .tagline {
       color: var(--green);
@@ -143,17 +149,17 @@
       .shots { grid-template-columns: repeat(4, 1fr); }
     }
 
-    /* "Who it's for" card — white card set off by a khaki border, soft shadow,
-       and a light-green accent bar (reads on the white section). */
-    .who {
-      background: #ffffff;
-      border: 1px solid var(--khaki);
-      border-left: 5px solid var(--green2);
-      border-radius: 8px;
-      padding: 16px 18px;
-      box-shadow: var(--shadow);
+    /* Closing block (in the green band, above the CTA). Cream text — the default
+       green h2 would vanish on green — centered and width-capped for readability. */
+    .closing { max-width: 560px; margin: 0 auto 28px; text-align: center; }
+    .closing-title {
+      color: var(--cream);
+      border: none;
+      padding: 0;
+      font-size: 1.4rem;
+      margin: 0 0 14px;
     }
-    .who p:last-child { margin-bottom: 0; }
+    .closing p:last-child { margin-bottom: 0; }
 
     /* Footer (dark band) */
     footer.band-dark { font-size: 0.9rem; color: var(--khaki); }
@@ -167,9 +173,9 @@
   <section class="hero band-cream">
     <div class="inner">
       <h1 class="hero-title"><img class="wordmark" src="wordmark.png" alt="Klippa" width="1376" height="768"></h1>
-      <p class="tagline">Where lawns happen</p>
+      <p class="tagline">Every mow counts</p>
 
-      <p class="pitch">Strava for people who mow their own lawn. Track every mow, map your yard once on satellite, build your streak, and prove the work — for the homeowner who mows their own lawn and is proud of it.</p>
+      <p class="pitch">You mow your own lawn, and you do it right. Klippa is the tracker for people who treat the yard as a craft. Log every mow, map your yard on satellite, build your streak, and watch the work add up to something you can point at.</p>
 
       <div class="cta">
         <a class="btn" href="https://testflight.apple.com/join/QvBmZysn">Get Klippa on TestFlight&nbsp;&rarr;</a>
@@ -182,12 +188,12 @@
     <div class="inner">
       <h2>What you get</h2>
       <ul class="features">
-        <li><strong>Mow timer &amp; log.</strong> Start and stop the timer for each mow; it records the date, duration, and what you did.</li>
-        <li><strong>Satellite lawn map.</strong> Trace your yard on satellite once, then split it into zones — front, back, side — with areas that sum to your total.</li>
-        <li><strong>Streaks.</strong> Consecutive-week logging, so you can see the run and keep it going.</li>
-        <li><strong>Height of cut &amp; job log.</strong> Record your HOC and the jobs done — mow, trim, edge, blow — per session.</li>
-        <li><strong>Weather on every mow.</strong> Conditions get stamped automatically when you save the mow.</li>
-        <li><strong>Steps &amp; distance.</strong> Pulls how far you walked and your step count from Apple Health for each mow.</li>
+        <li><strong>The mow log.</strong> Every mow on the record: date, duration, conditions, what you did. Pause for the phone call, pick it back up, finish the job.</li>
+        <li><strong>Your yard, mapped.</strong> Trace it once on satellite, split it into zones. Front, back, side. Log exactly what you mowed, and your stats stay honest even when you only hit the front.</li>
+        <li><strong>The streak.</strong> Consecutive weeks on the books. See the run, keep the run.</li>
+        <li><strong>Height of cut &amp; the full job.</strong> HOC per mow, plus everything you did: mow, trim, edge, blow. The whole session, not just the mowing.</li>
+        <li><strong>Weather, stamped.</strong> Conditions captured automatically the moment you save. That 98&deg; July mow counts for what it was.</li>
+        <li><strong>The miles you actually walked.</strong> Steps and distance pulled from Apple Health, per mow. Mowing isn't a chore, it's a workout.</li>
       </ul>
     </div>
   </section>
@@ -203,16 +209,12 @@
     </div>
   </section>
 
-  <section class="band-white">
-    <div class="inner">
-      <div class="who">
-        <p>Built for the r/lawncare crowd — Bermuda, Zoysia, and the whole summer grind. If you already know your height of cut, this is for you.</p>
-      </div>
-    </div>
-  </section>
-
   <section class="band-green">
     <div class="inner">
+      <div class="closing">
+        <h2 class="closing-title">Every Saturday, you show up. Now it shows.</h2>
+        <p>Nobody hands out medals for a clean edge and a full season of Saturdays. The stripes fade, the grass grows back, and the only person who knows what it took is you. Klippa keeps the record. Every mow, every mile, every week you showed up, so the work speaks for itself. Built by someone who mows, for people who mow.</p>
+      </div>
       <div class="cta">
         <a class="btn btn--inverse" href="https://testflight.apple.com/join/QvBmZysn">Join the beta&nbsp;&rarr;</a>
         <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
