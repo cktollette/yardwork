@@ -18,6 +18,7 @@ import { mostRecentBags } from './bags';
 import ToolTypePicker from './ToolTypePicker';
 import { mostRecentToolTypes, normalizeToolTypes } from './tools';
 import PhotoSlots, { type PhotoSlot } from './PhotoSlots';
+import ZonePicker, { type PickerZone } from './ZonePicker';
 import { formatShortDuration, needsShortMowConfirmation } from './mowValidation';
 import { captureWeatherForMow } from '../weather/captureWeatherForMow';
 import { captureActivityForMow } from '../activity/captureActivityForMow';
@@ -49,6 +50,9 @@ export default function SaveMowScreen({ navigation, route }: Props) {
   const [toolTypes, setToolTypes] = useState<EquipmentType[]>([]);
   const [beforePhotoUri, setBeforePhotoUri] = useState<string | undefined>(undefined);
   const [afterPhotoUri, setAfterPhotoUri] = useState<string | undefined>(undefined);
+  // Lawn zones + the coverage selection (all selected by default = whole lawn).
+  const [zones, setZones] = useState<PickerZone[]>([]);
+  const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const setPhoto = useCallback((slot: PhotoSlot, uri: string | undefined) => {
@@ -56,16 +60,27 @@ export default function SaveMowScreen({ navigation, route }: Props) {
     else setAfterPhotoUri(uri);
   }, []);
 
+  const toggleZone = useCallback((zoneId: string) => {
+    setSelectedZoneIds((prev) =>
+      prev.includes(zoneId) ? prev.filter((z) => z !== zoneId) : [...prev, zoneId],
+    );
+  }, []);
+
   // Default HOC and job types from the most recent mow (progressive disclosure);
   // stash the most recent bag count as the seed-on-tap value only (no pre-fill).
   useEffect(() => {
     let active = true;
-    mowRepository.listMows().then((mows) => {
-      if (!active) return;
-      setHocInches(mostRecentHoc(mows));
-      setBagsSeed(mostRecentBags(mows));
-      setToolTypes(mostRecentToolTypes(mows) ?? []);
-    });
+    Promise.all([mowRepository.listMows(), propertyRepository.getOrCreateDefault()]).then(
+      ([mows, property]) => {
+        if (!active) return;
+        setHocInches(mostRecentHoc(mows));
+        setBagsSeed(mostRecentBags(mows));
+        setToolTypes(mostRecentToolTypes(mows) ?? []);
+        // Every zone selected by default = whole lawn (collapses to absent on save).
+        setZones(property.zones);
+        setSelectedZoneIds(property.zones.map((z) => z.id));
+      },
+    );
     return () => {
       active = false;
     };
@@ -85,6 +100,11 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       const property = await propertyRepository.getOrCreateDefault();
       const trimmed = notes.trim();
       const normalizedTools = normalizeToolTypes(toolTypes);
+      // "All zones selected" collapses to absent (whole lawn) — never a
+      // full-membership array (that would be snapshotting; see models.ts). A
+      // strict subset is stored explicitly.
+      const isAllZones = selectedZoneIds.length === zones.length;
+      const zoneIds = isAllZones ? undefined : selectedZoneIds;
       const saved = await mowRepository.saveMow({
         propertyId: property.id,
         startedAt: draft.startedAt,
@@ -94,6 +114,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
         ...(hocInches != null ? { hocInches } : {}),
         ...(clippingBags != null ? { clippingBags } : {}),
         ...(normalizedTools ? { toolTypes: normalizedTools } : {}),
+        ...(zoneIds && zoneIds.length > 0 ? { zoneIds } : {}),
         // Picker temp URIs; the repository copies them into app-owned storage.
         ...(beforePhotoUri ? { beforePhotoUri } : {}),
         ...(afterPhotoUri ? { afterPhotoUri } : {}),
@@ -148,7 +169,7 @@ export default function SaveMowScreen({ navigation, route }: Props) {
       setSaving(false);
       Alert.alert('Could not save mow', 'Please try again.');
     }
-  }, [saving, notes, hocInches, clippingBags, toolTypes, beforePhotoUri, afterPhotoUri, draft, navigation]);
+  }, [saving, notes, hocInches, clippingBags, toolTypes, selectedZoneIds, zones, beforePhotoUri, afterPhotoUri, draft, navigation]);
 
   const handleDiscard = useCallback(() => {
     navigation.goBack();
@@ -185,6 +206,20 @@ export default function SaveMowScreen({ navigation, route }: Props) {
           {formatDuration(draft.durationSeconds)}
         </Text>
       </View>
+
+      {/* Zone coverage — only for multi-zone lawns; a one-choice chooser is
+          noise (single-zone suppression). All selected = whole lawn. */}
+      {zones.length >= 2 && (
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Zones covered</Text>
+          <ZonePicker
+            zones={zones}
+            selectedIds={selectedZoneIds}
+            onToggle={toggleZone}
+            disabled={saving}
+          />
+        </View>
+      )}
 
       <HocField value={hocInches} onChange={setHocInches} disabled={saving} />
 

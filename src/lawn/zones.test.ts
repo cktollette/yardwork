@@ -1,4 +1,4 @@
-import { defaultZoneName, totalAreaSqFt } from './zones';
+import { coveredAreaSqFt, defaultZoneName, totalAreaSqFt } from './zones';
 import { computeAreaSqFt } from './area';
 import { deriveStats } from '../stats/deriveStats';
 import type { Position, Zone } from '../mow/models';
@@ -25,6 +25,30 @@ describe('totalAreaSqFt', () => {
 
   it('is 0 for an empty lawn', () => {
     expect(totalAreaSqFt([])).toBe(0);
+  });
+});
+
+describe('coveredAreaSqFt (per-mow zone coverage)', () => {
+  const zones = [zone(1000, { id: 'z1' }), zone(2000, { id: 'z2' }), zone(500, { id: 'z3' })];
+
+  it('absent zoneIds means the whole lawn (sum of all zones)', () => {
+    expect(coveredAreaSqFt(undefined, zones)).toBe(3500);
+    expect(coveredAreaSqFt(undefined, zones)).toBe(totalAreaSqFt(zones));
+  });
+
+  it('a subset sums only the selected zones (less than the whole lawn)', () => {
+    expect(coveredAreaSqFt(['z1'], zones)).toBe(1000);
+    expect(coveredAreaSqFt(['z1', 'z3'], zones)).toBe(1500);
+  });
+
+  it('tolerates a referenced zone that was later deleted (drops it, no throw)', () => {
+    expect(coveredAreaSqFt(['z1', 'gone'], zones)).toBe(1000);
+    expect(coveredAreaSqFt(['gone'], zones)).toBe(0); // all referenced deleted
+  });
+
+  it('is 0 for an empty selection or an empty lawn', () => {
+    expect(coveredAreaSqFt([], zones)).toBe(0);
+    expect(coveredAreaSqFt(['z1'], [])).toBe(0);
   });
 });
 

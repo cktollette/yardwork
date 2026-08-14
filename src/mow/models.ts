@@ -116,17 +116,29 @@ export interface Mow {
    */
   activity?: Activity;
   /**
-   * RESERVED (D-036): which lawn zones this mow covered. Declared now so the
-   * persisted shape is forward-compatible, but NO code path in this PR ever
-   * writes or reads it — per-mow zone selection is a future feature. Absent on
-   * every mow today; enforced by a test that greps the source for the field.
+   * Which lawn zones this mow covered — per-mow zone selection (D-050; the field
+   * was reserved as D-036 pending this feature). Save-time editable.
+   *
+   * Semantics (settled):
+   *  - ABSENT/undefined = the whole lawn, resolved AT READ TIME. If zones are
+   *    later added or deleted, derived stats for an absent-zoneIds mow drift
+   *    accordingly; the record itself never changes. This is deliberate (D-050
+   *    reserved-null semantics) — we rejected snapshotting zone membership.
+   *  - PRESENT = the mow covered exactly those zones. Efficiency sums those
+   *    zones' areas; a referenced zone that is later deleted is dropped from the
+   *    sum at read time (tolerant read, D-056) — never throws, never blocks.
+   *
+   * "All zones selected" deliberately collapses to ABSENT at write time (see the
+   * save/edit flows): there is intentionally no way to store a full-membership
+   * array, which would be snapshotting by the back door. Coverage resolution
+   * lives in coveredAreaSqFt (src/lawn/zones.ts).
    */
   zoneIds?: string[];
 }
 
 /**
  * A mow before it has been persisted; the repository assigns the id. `weather`
- * and `activity` are omitted (provenance attached only by their capture paths);
- * `zoneIds` is omitted too — it's a reserved field never set at save time.
+ * and `activity` are omitted (provenance attached only by their capture paths).
+ * `zoneIds` IS included — it's a save-time field set by the zone selector.
  */
-export type NewMow = Omit<Mow, 'id' | 'weather' | 'activity' | 'zoneIds'>;
+export type NewMow = Omit<Mow, 'id' | 'weather' | 'activity'>;

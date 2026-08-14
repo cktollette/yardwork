@@ -120,6 +120,33 @@ describe('deriveStats — polygon gating for area stats', () => {
   });
 });
 
+describe('deriveStats — per-mow zone coverage', () => {
+  const full = mow('2026-07-13T10:00:00Z', 1800); // 30 min, whole lawn
+  const partial: StatsMow = { ...mow('2026-07-20T10:00:00Z', 1800), coveredAreaSqFt: 2000 };
+
+  it('a partial mow contributes only its covered area, lowering the totals', () => {
+    // Both mows whole-lawn (6000 each): 12000 sqft over 60 min => 200/min.
+    const whole = deriveStats([full, { ...partial, coveredAreaSqFt: undefined }], {
+      now: NOW,
+      areaSqFt: 6000,
+    });
+    // Second mow covered only 2000 (a subset): 6000 + 2000 = 8000 over 60 min.
+    const mixed = deriveStats([full, partial], { now: NOW, areaSqFt: 6000 });
+
+    expect(whole.lifetimeAreaSqFt).toBe(12000);
+    expect(mixed.lifetimeAreaSqFt).toBe(8000); // subset selection changed the sum
+    expect(mixed.lifetimeAreaSqFt).toBeLessThan(whole.lifetimeAreaSqFt as number);
+    expect(mixed.sqFtPerMinute).toBeCloseTo(8000 / 60, 10);
+    expect(mixed.sqFtPerMinute as number).toBeLessThan(whole.sqFtPerMinute as number);
+  });
+
+  it('a mow without coveredAreaSqFt falls back to the whole lawn (back-compat)', () => {
+    // No coveredAreaSqFt anywhere => identical to plain area × count.
+    const s = deriveStats([full], { now: NOW, areaSqFt: 6000 });
+    expect(s.lifetimeAreaSqFt).toBe(6000);
+  });
+});
+
 describe('deriveStats — average height of cut', () => {
   it('is null when no mow has a height of cut, even with plenty of mows', () => {
     const s = deriveStats(

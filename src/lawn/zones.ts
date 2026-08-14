@@ -24,6 +24,24 @@ export function totalAreaSqFt(zones: Zone[]): number {
 }
 
 /**
+ * The area (sq ft) a mow covered, from its zone selection (D-050):
+ *   - absent/undefined zoneIds → the WHOLE lawn (sum of every current zone).
+ *     Resolved here at read time, so it drifts as zones are added/removed.
+ *   - present zoneIds → the sum of the areas of the referenced zones that STILL
+ *     EXIST. A referenced-but-deleted zone is silently dropped (tolerant read,
+ *     D-056) — never throws. All referenced zones gone (or an empty list) → 0.
+ * Zones need only `{ id, areaSqFt }`; Mow.zoneIds is never mutated by reads.
+ */
+export function coveredAreaSqFt(
+  zoneIds: string[] | null | undefined,
+  zones: Pick<Zone, 'id' | 'areaSqFt'>[],
+): number {
+  if (zoneIds == null) return totalAreaSqFt(zones as Zone[]);
+  const covered = new Set(zoneIds);
+  return zones.reduce((sum, z) => (covered.has(z.id) ? sum + z.areaSqFt : sum), 0);
+}
+
+/**
  * All vertices across all zones, flattened into one list. Used to pick a single
  * weather point for the whole lawn: pooling every zone's vertices into the
  * vertex-average centroid puts the point in the middle of the traced area,

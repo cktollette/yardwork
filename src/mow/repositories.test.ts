@@ -155,6 +155,18 @@ describe('MowRepository', () => {
     expect(a.id).not.toBe(b.id);
   });
 
+  it('persists zoneIds when the mow covered a subset of zones', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow({ zoneIds: ['z1', 'z2'] }));
+    expect(saved.zoneIds).toEqual(['z1', 'z2']);
+    expect((await mowRepository.getMowById(saved.id))?.zoneIds).toEqual(['z1', 'z2']);
+  });
+
+  it('stores no zoneIds for a whole-lawn mow (absent, never backfilled)', async () => {
+    const saved = await mowRepository.saveMow(makeNewMow());
+    expect('zoneIds' in saved).toBe(false);
+    expect((await mowRepository.getMowById(saved.id))?.zoneIds).toBeUndefined();
+  });
+
   it('lists mows reverse-chronologically by startedAt (newest first)', async () => {
     const base = 1_700_000_000_000;
     // Save out of order to prove the repository sorts, not insertion order.
