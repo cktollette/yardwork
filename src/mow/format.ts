@@ -25,3 +25,11 @@ export function formatMowDate(epochMs: number): string {
   const d = new Date(epochMs);
   return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
+
+/**
+ * Format a captured temperature (whole °F) for display, e.g. 72 -> "72°F".
+ * The value is already rounded at capture time; this only attaches the unit.
+ */
+export function formatTemp(tempF: number): string {
+  return `${tempF}°F`;
+}
