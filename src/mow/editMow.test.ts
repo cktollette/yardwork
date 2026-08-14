@@ -170,6 +170,23 @@ describe('applyMowEdit', () => {
     expect(applyMowEdit(mow, { notes: 'x' }).zoneIds).toEqual(['a']);
   });
 
+  it('preserves a paused mow\'s wall-clock endedAt on a non-time edit', () => {
+    // Paused mow: wall-clock span (3600s) exceeds active duration (2400s).
+    const startedAt = 1_700_000_000_000;
+    const paused = makeMow({ startedAt, endedAt: startedAt + 3600 * 1000, durationSeconds: 2400 });
+    const edited = applyMowEdit(paused, { notes: 'phone call mid-mow' });
+    expect(edited.endedAt).toBe(startedAt + 3600 * 1000); // untouched, not collapsed
+    expect(edited.durationSeconds).toBe(2400);
+  });
+
+  it('collapses the wall-clock span when a time field IS edited (deliberate)', () => {
+    const startedAt = 1_700_000_000_000;
+    const paused = makeMow({ startedAt, endedAt: startedAt + 3600 * 1000, durationSeconds: 2400 });
+    // Editing duration reflows endedAt to startedAt+duration — no segments to keep.
+    const edited = applyMowEdit(paused, { durationSeconds: 1800 });
+    expect(edited.endedAt).toBe(startedAt + 1800 * 1000);
+  });
+
   it('rejects an edit that makes endedAt <= startedAt', () => {
     const mow = makeMow();
     expect(() => applyMowEdit(mow, { durationSeconds: 0 })).toThrow();

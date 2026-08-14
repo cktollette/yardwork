@@ -73,7 +73,14 @@ export interface MowEdit {
 export function applyMowEdit(mow: Mow, patch: MowEdit): Mow {
   const startedAt = patch.startedAt ?? mow.startedAt;
   const durationSeconds = patch.durationSeconds ?? mow.durationSeconds;
-  const endedAt = startedAt + durationSeconds * 1000;
+  // Recompute endedAt only when a time field is actually edited; otherwise keep
+  // the stored endedAt truthful. A paused mow (collapse-at-save) stores endedAt
+  // as the FINAL WALL-CLOCK end, which exceeds startedAt+duration — a non-time
+  // edit (e.g. notes) must not collapse it. A time edit DOES collapse the
+  // wall-clock span to startedAt+duration: segment provenance isn't persisted,
+  // so there's nothing to reflow — deliberate under collapse-at-save, not a bug.
+  const timeEdited = 'startedAt' in patch || 'durationSeconds' in patch;
+  const endedAt = timeEdited ? startedAt + durationSeconds * 1000 : mow.endedAt;
 
   if (endedAt <= startedAt) {
     throw new Error('A mow must end after it starts');
