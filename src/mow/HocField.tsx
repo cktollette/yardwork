@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radii, spacing, typography } from '../theme';
 import { formatHoc, HOC_DEFAULT, HOC_MAX, HOC_MIN, stepHoc } from './hoc';
+import { HOC_GUIDANCE_BODY, HOC_GUIDANCE_TITLE } from './hocGuidance';
 
 type Props = {
   /** Current height of cut in inches, or undefined when unset. */
@@ -21,7 +22,22 @@ export default function HocField({ value, onChange, disabled = false }: Props) {
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>Height of cut (optional)</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>Height of cut (optional)</Text>
+        {/* Info affordance: fixed cut-height guidance via the app's existing
+            dialog pattern (Alert). Reads only — never touches value/onChange, so
+            it can't disrupt the field's tap targets or last-value seeding. Sits
+            by the label, clear of the stepper / Set HOC controls below. */}
+        <Pressable
+          onPress={() => Alert.alert(HOC_GUIDANCE_TITLE, HOC_GUIDANCE_BODY)}
+          accessibilityRole="button"
+          accessibilityLabel="About height of cut"
+          hitSlop={10}
+          style={({ pressed }) => [styles.info, pressed && styles.pressed]}
+        >
+          <Text style={styles.infoGlyph}>ⓘ</Text>
+        </Pressable>
+      </View>
 
       {isSet ? (
         <View style={styles.row}>
@@ -84,11 +100,18 @@ export default function HocField({ value, onChange, disabled = false }: Props) {
 
 const styles = StyleSheet.create({
   field: { gap: spacing.sm },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   label: {
     fontSize: typography.caption,
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  info: { paddingHorizontal: spacing.xs },
+  infoGlyph: {
+    fontSize: typography.body,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   stepper: {
