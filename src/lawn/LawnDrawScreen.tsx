@@ -12,10 +12,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   PanResponder,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +37,7 @@ import {
   withTimeout,
 } from './location';
 import { isUserCameraGesture, shouldApplyResolvedFix } from './cameraGuard';
+import { geocodingService, type GeocodeResult } from '../geocoding';
 
 /**
  * Draw / edit the lawn polygon on a Mapbox satellite layer.
@@ -53,6 +56,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'LawnDraw'>;
 
 const DEFAULT_CENTER: Position = [-96.8236, 33.1507]; // suburban default when location is unavailable
 const DEFAULT_ZOOM = 18.5;
+// Camera animation for a geocode fly-to (create mode). Every other camera write
+// (edit preload, location resolve) stays instant at 0.
+const GEOCODE_FLY_MS = 600;
+// Below this (after trimming) an address search is too vague to fire.
+const MIN_QUERY_LEN = 3;
 const ACCENT = colors.primary;
 const WARN = colors.warning;
 // Past this the boundary is almost certainly over-tapped, not genuinely complex.
@@ -84,6 +92,21 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
   // vertices would snap the map while drawing. It only changes at deliberate
   // moments, so re-renders during drawing leave the camera untouched.
   const [cameraCenter, setCameraCenter] = useState<Position>(DEFAULT_CENTER);
+  // Camera animation duration, lifted to state so a geocode can "fly" (~600ms)
+  // through the SAME controlled camera (D-026) while every other write stays
+  // instant. Never a second camera-control path.
+  const [cameraAnimationMs, setCameraAnimationMs] = useState(0);
+
+  // Address search (create mode only): submit-only, no autocomplete. Assistive —
+  // the at-home user with location permission never needs it.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GeocodeResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
+  // True while the search field holds focus, so a map tap can be dismiss-only.
+  const searchFocusedRef = useRef(false);
+  // Cancels a superseded (or unmounted) in-flight geocode.
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   const canClose = vertices.length >= MIN_BOUNDARY_VERTICES && !closed;
   const areaSqFt = useMemo(() => computeAreaSqFt(vertices), [vertices]);
@@ -273,6 +296,13 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
 
   const handleMapPress = useCallback(
     (feature: GeoJSON.Feature) => {
+      // A tap while the search field holds focus is dismiss-only: close the
+      // keyboard and swallow the tap, never placing a vertex.
+      if (searchFocusedRef.current) {
+        Keyboard.dismiss();
+        searchFocusedRef.current = false;
+        return;
+      }
       if (!drawMode || closed) return;
       if (feature.geometry?.type !== 'Point') return;
       const coord = feature.geometry.coordinates as Position;
@@ -280,6 +310,68 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
     },
     [drawMode, closed],
   );
+
+  // Fly the controlled camera to a geocoded point (create mode). A geocode pick
+  // is a deliberate camera takeover, so mark the camera user-owned — this both
+  // routes through the single controlled-camera state (D-026) and stops the
+  // create-mode late-GPS-fix refine from yanking the camera back (cameraGuard).
+  const flyToGeocode = useCallback((center: Position) => {
+    userMovedCameraRef.current = true;
+    setCameraAnimationMs(GEOCODE_FLY_MS);
+    setCameraCenter(center);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchFailed(false);
+  }, []);
+
+  const selectResult = useCallback(
+    (result: GeocodeResult) => {
+      flyToGeocode(result.center);
+      clearSearch();
+      Keyboard.dismiss();
+      searchFocusedRef.current = false;
+    },
+    [flyToGeocode, clearSearch],
+  );
+
+  // Submit-only forward geocode (no autocomplete). Requires a trimmed query of
+  // at least MIN_QUERY_LEN. A single hit flies immediately; multiple hits show a
+  // pick list; zero hits (or any failure — the service returns []) degrade to a
+  // lightweight error and manual pan. Never blocks the draw flow (D-040 spirit).
+  const runAddressSearch = useCallback(async () => {
+    const q = searchQuery.trim();
+    if (q.length < MIN_QUERY_LEN) return;
+
+    searchAbortRef.current?.abort(); // supersede any prior in-flight search
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+
+    setSearching(true);
+    setSearchFailed(false);
+    setSearchResults([]);
+    try {
+      const results = await geocodingService.forwardGeocode(q, { signal: controller.signal });
+      if (controller.signal.aborted) return; // superseded or unmounted
+      if (results.length === 0) {
+        setSearchFailed(true);
+      } else if (results.length === 1) {
+        flyToGeocode(results[0].center);
+        clearSearch();
+      } else {
+        setSearchResults(results);
+      }
+    } finally {
+      if (!controller.signal.aborted) setSearching(false);
+    }
+  }, [searchQuery, flyToGeocode, clearSearch]);
+
+  // Cancel any in-flight geocode on unmount.
+  useEffect(() => {
+    return () => searchAbortRef.current?.abort();
+  }, []);
 
   const moveVertex = useCallback(
     (index: number, pageX: number, pageY: number) => {
@@ -433,7 +525,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
         <Camera
           centerCoordinate={cameraCenter}
           zoomLevel={DEFAULT_ZOOM}
-          animationDuration={0}
+          animationDuration={cameraAnimationMs}
         />
 
         {/* ONE ShapeSource for the whole draw→close lifecycle; its id never
@@ -494,6 +586,59 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
           <View style={styles.cancel} />
         )}
       </View>
+
+      {/* Assistive address search: create mode, before the ring is closed. The
+          at-home user with location permission never needs it. Submit-only. */}
+      {mode === 'create' && !closed && (
+        <View style={[styles.searchWrap, { top: insets.top + 52 }]}>
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onFocus={() => {
+                searchFocusedRef.current = true;
+              }}
+              onBlur={() => {
+                searchFocusedRef.current = false;
+              }}
+              onSubmitEditing={runAddressSearch}
+              returnKeyType="search"
+              placeholder="Search an address to find your lawn"
+              placeholderTextColor={colors.textMuted}
+              autoCorrect={false}
+              autoCapitalize="words"
+              testID="address-search-input"
+            />
+            {searching && (
+              <ActivityIndicator style={styles.searchSpinner} color={colors.primary} />
+            )}
+          </View>
+
+          {searchFailed && (
+            <Text style={styles.searchError}>
+              Couldn't find that address. Pan the map to find your lawn.
+            </Text>
+          )}
+
+          {searchResults.length > 0 && (
+            <View style={styles.resultsCard}>
+              {searchResults.map((r, i) => (
+                <Pressable
+                  key={`${r.center[0]},${r.center[1]},${i}`}
+                  onPress={() => selectResult(r)}
+                  style={styles.resultRow}
+                  testID={`address-result-${i}`}
+                >
+                  <Text style={styles.resultText} numberOfLines={2}>
+                    {r.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       {overWarn && !closed && (
         <View style={[styles.warnBar, { top: insets.top + 52 }]} pointerEvents="none">
@@ -701,6 +846,57 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     overflow: 'hidden',
     textAlign: 'center',
+  },
+  searchWrap: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    fontSize: typography.bodySmall,
+    color: colors.ink,
+  },
+  searchSpinner: { marginLeft: spacing.sm },
+  searchError: {
+    marginTop: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.6)', // map-chrome scrim, no token
+    color: colors.textOnColor,
+    fontSize: typography.caption,
+    fontWeight: '600',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    textAlign: 'center',
+  },
+  resultsCard: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  resultRow: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  resultText: {
+    fontSize: typography.bodySmall,
+    color: colors.ink,
   },
   controls: {
     position: 'absolute',

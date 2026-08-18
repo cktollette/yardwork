@@ -37,9 +37,14 @@ jest.mock('../mow/asyncStorageRepositories', () => ({
     deleteZone: jest.fn(),
   },
 }));
+jest.mock('../geocoding', () => ({
+  geocodingService: { forwardGeocode: jest.fn() },
+}));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { propertyRepository } = require('../mow/asyncStorageRepositories');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { geocodingService } = require('../geocoding');
 
 const SQUARE: Position[] = [
   [0, 0],
@@ -259,5 +264,92 @@ describe('LawnDrawScreen — closed polygon renders edge + fill layers', () => {
     expect(sources[0].props.shape.geometry.type).toBe('Polygon');
     expect(layerById(tree, 'polygon-fill')).toHaveLength(1);
     expect(layerById(tree, 'polygon-outline')).toHaveLength(1);
+  });
+});
+
+describe('LawnDrawScreen — address search (create mode)', () => {
+  const searchInput = (tree: ReactTestRenderer) =>
+    tree.root.findByProps({ testID: 'address-search-input' });
+  const flush = () => act(async () => {});
+
+  beforeEach(() => {
+    // Create mode, first zone, denied location => falls through to DEFAULT_CENTER.
+    propertyRepository.getById.mockResolvedValue(null);
+    Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
+  });
+
+  async function submit(tree: ReactTestRenderer, text: string) {
+    await act(async () => {
+      searchInput(tree).props.onChangeText(text);
+    });
+    await act(async () => {
+      searchInput(tree).props.onSubmitEditing();
+    });
+    await flush();
+  }
+
+  it('flies the controlled camera to a single geocode result on submit', async () => {
+    const HIT: Position = [-97.5, 32.5];
+    geocodingService.forwardGeocode.mockResolvedValue([{ label: '1 Main St', center: HIT }]);
+
+    const tree = await renderDraw('create');
+    expect(cameraCenter(tree)).toEqual(DEFAULT_CENTER);
+
+    await submit(tree, '1 Main Street');
+
+    expect(geocodingService.forwardGeocode).toHaveBeenCalledWith(
+      '1 Main Street',
+      expect.any(Object),
+    );
+    // Wrote through the SAME controlled camera state (D-026).
+    expect(cameraCenter(tree)).toEqual(HIT);
+  });
+
+  it('does not geocode a trimmed query shorter than 3 characters', async () => {
+    const tree = await renderDraw('create');
+    await submit(tree, '  ab  ');
+    expect(geocodingService.forwardGeocode).not.toHaveBeenCalled();
+  });
+
+  it('shows a pick list for multiple results and flies on selection', async () => {
+    const A: Position = [-97.1, 32.1];
+    const B: Position = [-96.2, 33.2];
+    geocodingService.forwardGeocode.mockResolvedValue([
+      { label: 'A Street', center: A },
+      { label: 'B Street', center: B },
+    ]);
+
+    const tree = await renderDraw('create');
+    await submit(tree, 'Main Street');
+
+    // List shown; camera not moved until a pick.
+    expect(cameraCenter(tree)).toEqual(DEFAULT_CENTER);
+    await act(async () => {
+      tree.root.findByProps({ testID: 'address-result-1' }).props.onPress();
+    });
+    expect(cameraCenter(tree)).toEqual(B);
+  });
+
+  it('a failed geocode leaves the draw flow intact and shows a lightweight error', async () => {
+    // Any failure surfaces as [] from the service (never throws).
+    geocodingService.forwardGeocode.mockResolvedValue([]);
+
+    const tree = await renderDraw('create');
+    await submit(tree, 'nowhere at all');
+
+    // Camera unmoved — degrades silently to manual pan.
+    expect(cameraCenter(tree)).toEqual(DEFAULT_CENTER);
+    expect(JSON.stringify(tree.toJSON())).toContain("Couldn't find that address");
+
+    // Drawing still works: a map tap places a vertex.
+    const map = tree.root.findByProps({ styleURL: 'satellite' });
+    await act(async () => {
+      map.props.onPress({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Point', coordinates: [0, 0] },
+      });
+    });
+    expect(JSON.stringify(tree.toJSON())).toContain('1 points');
   });
 });
