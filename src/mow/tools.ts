@@ -44,3 +44,31 @@ export function mostRecentToolTypes(mows: ToolsMow[]): EquipmentType[] | undefin
   }
   return undefined;
 }
+
+/** A job type paired with the number of mows that recorded it. */
+export interface ToolUsage {
+  type: EquipmentType;
+  count: number;
+}
+
+/**
+ * Rank job types by how many mows recorded each, most-used first. Each mow
+ * counts once per type (toolTypes are already deduped by normalizeToolTypes).
+ * Mows with no toolTypes contribute nothing; a log with no recorded tools yields
+ * []. Ties break by canonical EQUIPMENT_TYPES order (mower, trimmer, edger,
+ * blower): the array is seeded in canonical order and sorted by count with a
+ * stable sort, so equal counts keep canonical order. Unknown values (shouldn't
+ * occur post-normalize) are dropped, since only canonical types are emitted.
+ */
+export function rankToolUsage(mows: ToolsMow[]): ToolUsage[] {
+  const counts = new Map<EquipmentType, number>();
+  for (const mow of mows) {
+    if (!mow.toolTypes) continue;
+    for (const type of mow.toolTypes) {
+      counts.set(type, (counts.get(type) ?? 0) + 1);
+    }
+  }
+  return TYPE_ORDER.map((type) => ({ type, count: counts.get(type) ?? 0 }))
+    .filter((usage) => usage.count > 0)
+    .sort((a, b) => b.count - a.count);
+}
