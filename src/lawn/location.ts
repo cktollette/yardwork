@@ -53,6 +53,12 @@ export function pickCameraCenter(
 export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
+    // On the fire-and-forget paths (best-effort weather/activity capture, the
+    // create-mode location effect) a test can finish before the wrapped promise
+    // settles, leaving this timer pending and blocking a graceful jest worker
+    // exit. unref() lets the process exit regardless; it's a no-op in the RN
+    // runtime, where setTimeout returns a number rather than a Node timer. (#48)
+    (timer as { unref?: () => void }).unref?.();
     promise.then(
       (value) => {
         clearTimeout(timer);
