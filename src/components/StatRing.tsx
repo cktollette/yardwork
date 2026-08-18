@@ -1,47 +1,92 @@
 import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { colors, typography } from '../theme';
 
 type Props = {
   value: string | number;
   label: string;
   size?: number;
+  /** Arc / ring color (the filled portion). */
   ringColor?: string;
+  /**
+   * Progress as a fraction 0..1. Omit for a full ring (the historical
+   * behavior). Values outside the range are clamped, so >1 renders a full ring
+   * and <0 renders an empty one. When provided, an unfilled track is drawn
+   * behind the arc.
+   */
+  progress?: number;
+  /** Unfilled-track color, only shown when `progress` is provided. */
+  trackColor?: string;
 };
 
 const DEFAULT_SIZE = 72;
-const RING_WIDTH = 4;
+// Fixed stroke: matches the Grint-style arc weight and keeps arc geometry
+// deterministic for the render tests.
+const STROKE_WIDTH = 6;
 
 /**
  * Circular stat display: a value centered inside a colored ring, with a label
- * beneath.
- *
- * NOTE: react-native-svg is not a dependency, so this is a plain bordered-View
- * circle — a full, uniform ring only. It cannot render a partial/progress arc.
- * If progress rings are needed later, add react-native-svg and swap the
- * implementation; the props are already shaped for that (value/ringColor).
+ * beneath. Rendered as an SVG arc (react-native-svg) so it can show partial
+ * progress. With no `progress` it draws a full ring, matching the original
+ * bordered-circle look it replaces; with `progress` it fills clockwise from the
+ * top over an unfilled track.
  */
 export default function StatRing({
   value,
   label,
   size = DEFAULT_SIZE,
   ringColor = colors.primary,
+  progress,
+  trackColor = colors.sand,
 }: Props) {
+  const center = size / 2;
+  const radius = (size - STROKE_WIDTH) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  const hasProgress = typeof progress === 'number';
+  const fraction = hasProgress ? Math.max(0, Math.min(1, progress as number)) : 1;
+  const dashOffset = circumference * (1 - fraction);
+
   return (
     <View style={styles.wrap}>
-      <View
-        style={[
-          styles.ring,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderColor: ringColor,
-          },
-        ]}
-      >
-        <Text style={styles.value} numberOfLines={1}>
-          {value}
-        </Text>
+      <View style={{ width: size, height: size }}>
+        {/* Arcs start at 3 o'clock in SVG; rotate the whole canvas -90deg so
+            progress fills from the top. The value overlay is a sibling, so it
+            stays upright. */}
+        <Svg
+          width={size}
+          height={size}
+          style={{ transform: [{ rotate: '-90deg' }] }}
+        >
+          {hasProgress && (
+            <Circle
+              testID="statring-track"
+              cx={center}
+              cy={center}
+              r={radius}
+              fill="none"
+              stroke={trackColor}
+              strokeWidth={STROKE_WIDTH}
+            />
+          )}
+          <Circle
+            testID="statring-arc"
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke={ringColor}
+            strokeWidth={STROKE_WIDTH}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+          />
+        </Svg>
+        <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
+          <Text style={styles.value} numberOfLines={1}>
+            {value}
+          </Text>
+        </View>
       </View>
       <Text style={styles.label}>{label}</Text>
     </View>
@@ -53,11 +98,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  ring: {
-    borderWidth: RING_WIDTH,
+  center: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
   },
   value: {
     fontSize: typography.title,
