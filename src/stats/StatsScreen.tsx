@@ -9,10 +9,13 @@ import { hasLawn } from '../lawn/prompts';
 import { coveredAreaSqFt, totalAreaSqFt } from '../lawn/zones';
 import { colors, radii, spacing, typography } from '../theme';
 import { formatHoc } from '../mow/hoc';
+import { equipmentTypeLabel } from '../equipment/catalog';
+import type { ToolUsage } from '../mow/tools';
 import {
   deriveStats,
   MIN_MOWS_FOR_AVERAGES,
   MIN_MOWS_FOR_AVG_HOC,
+  MIN_MOWS_FOR_MOST_USED_TOOL,
   type Stats,
 } from './deriveStats';
 
@@ -20,6 +23,13 @@ type Props = RootTabScreenProps<'Stats'>;
 
 function weeks(n: number): string {
   return `${n} ${n === 1 ? 'week' : 'weeks'}`;
+}
+
+/** "Trimmer · 8 mows" — tool label with the count of mows that recorded it. */
+function toolValue(usage: ToolUsage): string {
+  return `${equipmentTypeLabel(usage.type)} · ${usage.count} ${
+    usage.count === 1 ? 'mow' : 'mows'
+  }`;
 }
 
 /** One label/value line. */
@@ -148,6 +158,22 @@ export default function StatsScreen({ navigation }: Props) {
           />
         ) : (
           <StatRow label="Average HOC" value={formatHoc(stats.averageHocInches)} />
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tools</Text>
+        {stats.mostUsedTool === null ? (
+          <LockedHint
+            text={`Log ${MIN_MOWS_FOR_MOST_USED_TOOL} mows with a tool to unlock your most-used tool`}
+          />
+        ) : (
+          <>
+            <StatRow label="Most-used tool" value={toolValue(stats.mostUsedTool)} />
+            {stats.runnerUpTool !== null && (
+              <StatRow label="Runner-up" value={toolValue(stats.runnerUpTool)} />
+            )}
+          </>
         )}
       </View>
 

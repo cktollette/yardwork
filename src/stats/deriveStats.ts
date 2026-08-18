@@ -15,6 +15,9 @@
  * Lifetime counts and streaks always compute (empty log => 0).
  */
 
+import type { EquipmentType } from '../equipment/models';
+import { rankToolUsage, type ToolUsage } from '../mow/tools';
+
 const MS_PER_DAY = 86_400_000;
 const MS_PER_WEEK = MS_PER_DAY * 7;
 
@@ -23,6 +26,13 @@ export const MIN_MOWS_FOR_AVERAGES = 3;
 
 /** Minimum mows *with a height of cut* before the average HOC unlocks. */
 export const MIN_MOWS_FOR_AVG_HOC = 3;
+
+/**
+ * Minimum mows *that recorded a tool* before the most-used tool unlocks. A
+ * subset gate like MIN_MOWS_FOR_AVG_HOC: a most-used tool computed from one or
+ * two tagged mows is noise, even in a large log.
+ */
+export const MIN_MOWS_FOR_MOST_USED_TOOL = 3;
 
 /** The only shape deriveStats needs from a mow — Mow satisfies this structurally. */
 export interface StatsMow {
@@ -41,6 +51,8 @@ export interface StatsMow {
    * or a caller that doesn't resolve coverage, behaves exactly as before).
    */
   coveredAreaSqFt?: number;
+  /** Job types recorded on this mow (D-037 enum values); absent means none. */
+  toolTypes?: EquipmentType[];
 }
 
 export interface DeriveStatsOptions {
@@ -70,6 +82,15 @@ export interface Stats {
    * MIN_MOWS_FOR_AVG_HOC mows-with-a-HOC.
    */
   averageHocInches: number | null;
+  /**
+   * The job type recorded on the most mows (with its mow count), or null below
+   * MIN_MOWS_FOR_MOST_USED_TOOL mows-that-recorded-a-tool. Ties break by
+   * canonical EQUIPMENT_TYPES order.
+   */
+  mostUsedTool: ToolUsage | null;
+  /** The second-most-used tool (with count), or null when fewer than two tools
+   *  appear in the log or the stat is gated. */
+  runnerUpTool: ToolUsage | null;
 }
 
 /**
@@ -170,6 +191,15 @@ export function deriveStats(mows: StatsMow[], opts: DeriveStatsOptions): Stats {
       ? Math.round((hocs.reduce((sum, h) => sum + h, 0) / hocs.length) * 100) / 100
       : null;
 
+  // Most-used tool, gated on a minimum of mows that actually recorded a tool
+  // (subset gate, like averageHocInches). rankToolUsage already applies the
+  // canonical tie-break; the top two entries give the tool and its runner-up.
+  const taggedMows = mows.filter((m) => m.toolTypes && m.toolTypes.length > 0).length;
+  const toolRanking =
+    taggedMows >= MIN_MOWS_FOR_MOST_USED_TOOL ? rankToolUsage(mows) : [];
+  const mostUsedTool = toolRanking[0] ?? null;
+  const runnerUpTool = toolRanking[1] ?? null;
+
   const { current, longest } = computeStreaks(
     mows.map((m) => isoWeekIndex(m.startedAt)),
     isoWeekIndex(now),
@@ -185,5 +215,7 @@ export function deriveStats(mows: StatsMow[], opts: DeriveStatsOptions): Stats {
     longestStreakWeeks: longest,
     sqFtPerMinute,
     averageHocInches,
+    mostUsedTool,
+    runnerUpTool,
   };
 }

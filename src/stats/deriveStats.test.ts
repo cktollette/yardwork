@@ -30,6 +30,8 @@ describe('deriveStats — lifetime + gating', () => {
     expect(s.longestStreakWeeks).toBe(0);
     expect(s.sqFtPerMinute).toBeNull();
     expect(s.averageHocInches).toBeNull();
+    expect(s.mostUsedTool).toBeNull();
+    expect(s.runnerUpTool).toBeNull();
   });
 
   it('empty log with a polygon: lifetime area is 0, efficiency still null (no mows)', () => {
@@ -316,5 +318,62 @@ describe('deriveStats — same-day mows and totals', () => {
     expect(s.lifetimeMows).toBe(3);
     expect(s.lifetimeHours).toBeCloseTo(3, 10); // 0.5 + 1 + 1.5
     expect(s.lifetimeAreaSqFt).toBe(15000); // 5000 * 3 mows
+  });
+});
+
+describe('deriveStats — most-used tool (subset gate + runner-up)', () => {
+  const toolMow = (startISO: string, toolTypes: string[]): StatsMow => ({
+    ...mow(startISO),
+    toolTypes: toolTypes as StatsMow['toolTypes'],
+  });
+
+  it('is gated null below 3 mows that recorded a tool', () => {
+    const s = deriveStats(
+      [toolMow('2026-07-10T12:00:00Z', ['mower']), toolMow('2026-07-11T12:00:00Z', ['mower'])],
+      { now: NOW },
+    );
+    expect(s.mostUsedTool).toBeNull();
+    expect(s.runnerUpTool).toBeNull();
+  });
+
+  it('stays gated when tools are sparse in a large log (only 2 tagged of many)', () => {
+    const s = deriveStats(
+      [
+        mow('2026-07-01T12:00:00Z'),
+        mow('2026-07-02T12:00:00Z'),
+        mow('2026-07-03T12:00:00Z'),
+        toolMow('2026-07-04T12:00:00Z', ['trimmer']),
+        toolMow('2026-07-05T12:00:00Z', ['trimmer']),
+      ],
+      { now: NOW },
+    );
+    expect(s.mostUsedTool).toBeNull();
+  });
+
+  it('unlocks at 3 tagged mows and reports the top tool with its mow count', () => {
+    const s = deriveStats(
+      [
+        toolMow('2026-07-08T12:00:00Z', ['mower', 'trimmer']),
+        toolMow('2026-07-09T12:00:00Z', ['mower']),
+        toolMow('2026-07-10T12:00:00Z', ['mower', 'edger']),
+      ],
+      { now: NOW },
+    );
+    expect(s.mostUsedTool).toEqual({ type: 'mower', count: 3 });
+    // trimmer and edger both on 1; canonical order makes trimmer the runner-up.
+    expect(s.runnerUpTool).toEqual({ type: 'trimmer', count: 1 });
+  });
+
+  it('runner-up is null when only one tool type appears across the log', () => {
+    const s = deriveStats(
+      [
+        toolMow('2026-07-08T12:00:00Z', ['blower']),
+        toolMow('2026-07-09T12:00:00Z', ['blower']),
+        toolMow('2026-07-10T12:00:00Z', ['blower']),
+      ],
+      { now: NOW },
+    );
+    expect(s.mostUsedTool).toEqual({ type: 'blower', count: 3 });
+    expect(s.runnerUpTool).toBeNull();
   });
 });
