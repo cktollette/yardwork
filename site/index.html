@@ -127,6 +127,34 @@
     }
     .band-green .expect { color: var(--cream); }
 
+    /* Early-access signup (the site's one JS island, D-064) */
+    .signup-sub { color: var(--muted); margin: 0 0 20px; }
+    .signup-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 16px; }
+    .signup-email {
+      flex: 1 1 240px;
+      min-width: 0;
+      font: inherit;
+      color: var(--dark);
+      background: #ffffff;
+      border: 1px solid var(--khaki);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .signup-email:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(70, 131, 103, 0.2);
+    }
+    .signup-row .btn { min-width: 0; flex: 0 0 auto; font-size: 1rem; padding: 14px 24px; }
+    @media (max-width: 479px) { .signup-row .btn { flex: 1 1 100%; } }
+    /* Honeypot: kept in the layout for bots, moved off-screen for humans and
+       hidden from assistive tech. Never display:none (some bots skip that). */
+    .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .signup-status { margin: 4px 0 0; font-weight: bold; }
+    .signup-status.is-ok { color: var(--green); }
+    .signup-status.is-error { color: var(--dark); }
+    .cf-turnstile { margin: 0 0 16px; }
+
     /* Feature list */
     .features { list-style: none; margin: 0; padding: 0; }
     .features li { margin-bottom: 14px; }
@@ -209,6 +237,30 @@
     </div>
   </section>
 
+  <section class="band-white" id="signup">
+    <div class="inner">
+      <h2>Get in early</h2>
+      <p class="signup-sub">Beta invites and build updates. No spam, never sold.</p>
+      <form class="signup" action="/api/subscribe" method="POST">
+        <input type="hidden" name="source" value="getklippa-landing">
+        <!-- Honeypot: hidden from humans (see .hp), left in the DOM to catch bots. -->
+        <div class="hp" aria-hidden="true">
+          <label>Company website
+            <input type="text" name="company" tabindex="-1" autocomplete="off">
+          </label>
+        </div>
+        <div class="signup-row">
+          <input class="signup-email" type="email" name="email" required maxlength="254"
+                 autocomplete="email" placeholder="you@example.com" aria-label="Email address">
+          <button class="btn" type="submit">Get in early</button>
+        </div>
+        <!-- Turnstile site key (public; the secret lives in the TURNSTILE_SECRET Pages env var). -->
+        <div class="cf-turnstile" data-sitekey="0x4AAAAAAEUarYQoKRykf4fE" data-theme="light"></div>
+        <p class="signup-status" role="status" aria-live="polite" hidden></p>
+      </form>
+    </div>
+  </section>
+
   <section class="band-green">
     <div class="inner">
       <div class="closing">
@@ -228,5 +280,59 @@
       <span class="appname">&ldquo;Klippa Lawn Society&rdquo; on TestFlight (shown as Klippa).</span>
     </div>
   </footer>
+
+  <!-- Turnstile widget script (spam defense). Vendor JS; renders .cf-turnstile. -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+  <!-- The site's one JS island (D-064): progressive enhancement for the signup
+       form. If this fails or is disabled, the form still POSTs natively and the
+       Pages Function returns an HTML confirmation page. -->
+  <script>
+    (function () {
+      var form = document.querySelector('form.signup');
+      if (!form) return;
+      var status = form.querySelector('.signup-status');
+      var button = form.querySelector('button[type="submit"]');
+      var MESSAGES = {
+        subscribed: "You're in. Watch your inbox.",
+        already: "You're in. Watch your inbox.",
+        invalid_email: "That email doesn't look right. Give it another look.",
+        turnstile_failed: "Couldn't verify you're human. Refresh and try again.",
+        server: "Something went wrong on our end. Try again in a minute.",
+        network: "Something went wrong on our end. Try again in a minute."
+      };
+      function show(kind, text) {
+        status.textContent = text;
+        status.className = 'signup-status ' + (kind === 'ok' ? 'is-ok' : 'is-error');
+        status.hidden = false;
+      }
+      form.addEventListener('submit', function (e) {
+        // Let the browser's native validation handle empty or malformed emails.
+        if (!form.checkValidity()) return;
+        e.preventDefault();
+        button.disabled = true;
+        fetch(form.action, {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+          body: new FormData(form)
+        }).then(function (res) {
+          return res.json().then(function (data) { return { status: res.status, data: data }; });
+        }).then(function (r) {
+          var d = r.data || {};
+          if (d.ok) {
+            form.reset();
+            show('ok', MESSAGES[d.state] || MESSAGES.subscribed);
+          } else {
+            show('error', MESSAGES[d.error] || MESSAGES.server);
+          }
+        }).catch(function () {
+          show('error', MESSAGES.network);
+        }).then(function () {
+          button.disabled = false;
+          if (window.turnstile) { try { window.turnstile.reset(); } catch (err) {} }
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

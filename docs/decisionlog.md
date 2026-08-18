@@ -501,6 +501,22 @@ on unmount prevents leaking a disabled swipe-back app-wide
 
 **Rationale:** Chain-test convention — every schema bump tests from the oldest supported version; documented at the seam.
 
+## D-064 — Amends D-030: email capture is the site's one JS island; the rest stays zero-JS
+
+- **Date:** August 18, 2026  
+- **Decided by:** Kent  
+- **Reversibility:** Easy  
+
+**Rationale:** D-030 committed the marketing site to zero JS. The early-access
+email form needs Cloudflare Turnstile for spam defense, and Turnstile is
+client-side JavaScript by nature (it loads a vendor script and injects the
+response token), so strict zero-JS is not achievable for this feature no matter
+how submit is handled. Given that, we also accept a small progressive-enhancement
+submit script (Option B) so the form shows inline success/error state without a
+full-page navigation; the plain form POST still works if that script fails,
+falling back to an HTML response from the Pages Function. The exception is scoped
+to the signup section only. Every other page and section remains zero-JS.
+
 ## Unnumbered (need D-numbers assigned in Notion)
 
 ### Map centering on user location pulled from v0.5 into v0
