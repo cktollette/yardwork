@@ -436,20 +436,23 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
           animationDuration={0}
         />
 
-        {closed ? (
-          <ShapeSource id="polygon" shape={polygonShape}>
+        {/* ONE ShapeSource for the whole draw→close lifecycle; its id never
+            changes. Swapping a mounted ShapeSource's id (line→polygon) is
+            unsupported by rnmapbox — it keeps the original native source and
+            silently drops the new layers, which is how build 10 lost every
+            closed polygon's edges on create→Done (edit mode, mounted closed
+            from the start, was unaffected). We swap only the SHAPE: an open
+            LineString while drawing, a closed Polygon once done. The fill has
+            nothing to fill until the geometry is a polygon; the outline draws
+            in both states. */}
+        {vertices.length >= 2 && (
+          <ShapeSource id="draw" shape={closed ? polygonShape : lineShape}>
             <FillLayer
               id="polygon-fill"
-              style={{ fillColor: colors.primary, fillOpacity: 0.35 }}
+              style={{ fillColor: colors.primary, fillOpacity: closed ? 0.35 : 0 }}
             />
             <LineLayer id="polygon-outline" style={{ lineColor: ACCENT, lineWidth: 3 }} />
           </ShapeSource>
-        ) : (
-          vertices.length >= 2 && (
-            <ShapeSource id="line" shape={lineShape}>
-              <LineLayer id="line-layer" style={{ lineColor: ACCENT, lineWidth: 3 }} />
-            </ShapeSource>
-          )
         )}
 
         {vertices.map((v, i) => (
@@ -549,6 +552,7 @@ export default function LawnDrawScreen({ route, navigation }: Props) {
             <Pressable
               onPress={close}
               disabled={!canClose}
+              testID="done-lawn"
               style={[
                 styles.btn,
                 canClose ? styles.btnPrimary : styles.btnIdle,

@@ -181,3 +181,83 @@ describe('LawnDrawScreen — per-zone I/O seam', () => {
     expect(propertyRepository.getById).toHaveBeenCalledWith('p1');
   });
 });
+
+// Regression guard for the build-10 bug: a finished/closed polygon rendered its
+// vertex MarkerViews but no edges, because closing swapped the ShapeSource id
+// (line→polygon) and rnmapbox silently drops the layers of a mounted source
+// whose id changes. These pin the two invariants that keep it from silently
+// dropping again: (1) the closed state renders BOTH the fill and the outline
+// over a closed ring; (2) the ShapeSource id never changes across open→closed.
+describe('LawnDrawScreen — closed polygon renders edge + fill layers', () => {
+  const allSources = (tree: ReactTestRenderer) =>
+    tree.root.findAll((n) => String(n.type) === 'ShapeSource');
+  // The rnmapbox mock renders each layer as a function component AND the host
+  // node it returns — both carry the id, so restrict to host (string-type) nodes.
+  const layerById = (tree: ReactTestRenderer, id: string) =>
+    tree.root.findAll((n) => typeof n.type === 'string' && n.props?.id === id);
+
+  it('edit/closed state mounts fill + outline over a closed ring (edge-drop pin)', async () => {
+    propertyRepository.getById.mockResolvedValue(
+      property([{ id: 'z1', name: 'Front', vertices: SQUARE, areaSqFt: 100 }]),
+    );
+
+    const tree = await renderDraw('edit', 'z1');
+
+    const sources = allSources(tree);
+    expect(sources).toHaveLength(1);
+
+    // Both the fill and the outline are present...
+    expect(layerById(tree, 'polygon-fill')).toHaveLength(1);
+    expect(layerById(tree, 'polygon-outline')).toHaveLength(1);
+    // ...and the fill actually paints (not a transparent no-op) when closed.
+    expect(layerById(tree, 'polygon-fill')[0].props.style.fillOpacity).toBeGreaterThan(0);
+
+    // Geometry is a polygon whose ring is closed (last coord repeats the first).
+    const geom = sources[0].props.shape.geometry;
+    expect(geom.type).toBe('Polygon');
+    const ring = geom.coordinates[0];
+    expect(ring[ring.length - 1]).toEqual(ring[0]);
+  });
+
+  it('keeps the ShapeSource id stable across open→closed (no-teardown pin)', async () => {
+    // Create mode, first zone: getById null + denied location → no camera/timer
+    // side effects, so the transition is all we exercise.
+    propertyRepository.getById.mockResolvedValue(null);
+
+    const tree = await renderDraw('create');
+    const map = tree.root.findByProps({ styleURL: 'satellite' });
+    const tap = (coordinates: Position) =>
+      act(async () => {
+        map.props.onPress({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Point', coordinates },
+        });
+      });
+
+    // Place 3 vertices — enough to close.
+    await tap([0, 0]);
+    await tap([0.001, 0]);
+    await tap([0.001, 0.001]);
+
+    // Open: one source, an OPEN LineString.
+    let sources = allSources(tree);
+    expect(sources).toHaveLength(1);
+    const openId = sources[0].props.id;
+    expect(sources[0].props.shape.geometry.type).toBe('LineString');
+
+    // Close the ring.
+    await act(async () => {
+      tree.root.findByProps({ testID: 'done-lawn' }).props.onPress();
+    });
+
+    // SAME source id — the swap that broke build 10 must not recur — now a
+    // closed Polygon, with the fill + outline still mounted.
+    sources = allSources(tree);
+    expect(sources).toHaveLength(1);
+    expect(sources[0].props.id).toBe(openId);
+    expect(sources[0].props.shape.geometry.type).toBe('Polygon');
+    expect(layerById(tree, 'polygon-fill')).toHaveLength(1);
+    expect(layerById(tree, 'polygon-outline')).toHaveLength(1);
+  });
+});
