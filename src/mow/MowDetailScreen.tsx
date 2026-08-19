@@ -26,6 +26,8 @@ import type { MowEdit } from './editMow';
 import type { Mow } from './models';
 import type { RootStackScreenProps } from './navigation';
 import { colors, radii, spacing, typography } from '../theme';
+import ShareCardModal from '../share/ShareCardModal';
+import { buildShareCardModel, type ShareCardModel } from '../share/shareCardModel';
 
 /** Order-insensitive equality for two type lists. */
 function sameTypes(a: EquipmentType[], b: EquipmentType[]): boolean {
@@ -64,6 +66,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   const [zones, setZones] = useState<PickerZone[]>([]);
   const [selectedZoneIds, setSelectedZoneIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [shareModel, setShareModel] = useState<ShareCardModel | null>(null);
 
   const setPhoto = useCallback((slot: PhotoSlot, uri: string | undefined) => {
     if (slot === 'before') setBeforePhotoUri(uri);
@@ -247,6 +250,36 @@ export default function MowDetailScreen({ navigation, route }: Props) {
     ]);
   }, [mow, busy, navigation]);
 
+  // Build the share-card model from the saved mow + zones + full history (the
+  // efficiency ring compares against your personal best), then open the preview.
+  const onShare = useCallback(async () => {
+    if (!mow) return;
+    const [property, allMows] = await Promise.all([
+      propertyRepository.getOrCreateDefault(),
+      mowRepository.listMows(),
+    ]);
+    setShareModel(buildShareCardModel(mow, property.zones, allMows));
+  }, [mow]);
+
+  // Additive, shallow entry point: a header-right Share action, added once the
+  // mow has loaded. Kept out of the scroll body so the v1.5 restyle needn't
+  // unwind it.
+  useEffect(() => {
+    if (!mow) return;
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={onShare}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Share this mow"
+        >
+          <Text style={styles.shareLink}>Share</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation, mow, onShare]);
+
   if (mow === undefined) return <View style={styles.container} />;
 
   if (mow === null) {
@@ -261,6 +294,7 @@ export default function MowDetailScreen({ navigation, route }: Props) {
   }
 
   return (
+    <>
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.field}>
         <Text style={styles.fieldLabel}>Date</Text>
@@ -391,6 +425,10 @@ export default function MowDetailScreen({ navigation, route }: Props) {
         <Text style={styles.deleteText}>Delete mow</Text>
       </Pressable>
     </ScrollView>
+    {shareModel && (
+      <ShareCardModal model={shareModel} onClose={() => setShareModel(null)} />
+    )}
+    </>
   );
 }
 
@@ -404,6 +442,7 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   gone: { fontSize: typography.body, color: colors.textSecondary, textAlign: 'center' },
   backLink: { fontSize: typography.body, color: colors.primary, fontWeight: '600' },
+  shareLink: { fontSize: typography.body, color: colors.primary, fontWeight: '600' },
   field: { gap: spacing.sm },
   fieldLabel: {
     fontSize: typography.caption,
