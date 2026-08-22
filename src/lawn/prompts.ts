@@ -13,6 +13,8 @@ import type { Zone } from '../mow/models';
 export const ONBOARDING_DISMISSED_KEY = '@yardwork/lawn-onboarding-dismissed';
 export const THIRD_MOW_PROMPT_DISMISSED_KEY =
   '@yardwork/lawn-third-mow-prompt-dismissed';
+export const FIRST_MOW_SHEET_DISMISSED_KEY =
+  '@yardwork/first-mow-sheet-dismissed';
 
 /** Mows logged before a lawn-less user gets the one-time "trace it" nudge. */
 export const THIRD_MOW_PROMPT_THRESHOLD = 3;
@@ -28,6 +30,18 @@ export function shouldShowOnboarding(args: {
   dismissed: boolean;
 }): boolean {
   return !args.hasBoundary && !args.dismissed;
+}
+
+/**
+ * First-mow coaching sheet: shown the first time the user starts the timer, but
+ * never stacked on the lawn onboarding — it waits until onboarding is not going
+ * to show (already dismissed, or a lawn already exists). Shown at most once.
+ */
+export function shouldShowFirstMowSheet(args: {
+  onboardingActive: boolean;
+  firstMowSheetDismissed: boolean;
+}): boolean {
+  return !args.onboardingActive && !args.firstMowSheetDismissed;
 }
 
 /** Post-save nudge: once they've logged enough mows but still have no lawn. */
@@ -68,3 +82,6 @@ export const isThirdMowPromptDismissed = () =>
   readFlag(THIRD_MOW_PROMPT_DISMISSED_KEY);
 export const dismissThirdMowPrompt = () =>
   setFlag(THIRD_MOW_PROMPT_DISMISSED_KEY);
+export const isFirstMowSheetDismissed = () =>
+  readFlag(FIRST_MOW_SHEET_DISMISSED_KEY);
+export const dismissFirstMowSheet = () => setFlag(FIRST_MOW_SHEET_DISMISSED_KEY);

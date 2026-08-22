@@ -1,12 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Position, Zone } from '../mow/models';
 import {
+  dismissFirstMowSheet,
   dismissOnboarding,
   dismissThirdMowPrompt,
   hasLawn,
+  isFirstMowSheetDismissed,
   isOnboardingDismissed,
   isThirdMowPromptDismissed,
   shouldPromptAfterMow,
+  shouldShowFirstMowSheet,
   shouldShowOnboarding,
   THIRD_MOW_PROMPT_THRESHOLD,
 } from './prompts';
@@ -25,6 +28,32 @@ const TRIANGLE: Position[] = [
   [0, 1],
 ];
 const zone = (): Zone => ({ id: 'z1', name: 'Lawn', vertices: TRIANGLE, areaSqFt: 100 });
+
+describe('shouldShowFirstMowSheet', () => {
+  it('shows only when onboarding is not active and it has not been dismissed', () => {
+    expect(
+      shouldShowFirstMowSheet({ onboardingActive: false, firstMowSheetDismissed: false }),
+    ).toBe(true);
+  });
+  it('never stacks on the lawn onboarding', () => {
+    expect(
+      shouldShowFirstMowSheet({ onboardingActive: true, firstMowSheetDismissed: false }),
+    ).toBe(false);
+  });
+  it('never shows once dismissed', () => {
+    expect(
+      shouldShowFirstMowSheet({ onboardingActive: false, firstMowSheetDismissed: true }),
+    ).toBe(false);
+  });
+});
+
+describe('first-mow sheet dismissed flag', () => {
+  it('round-trips through storage', async () => {
+    expect(await isFirstMowSheetDismissed()).toBe(false);
+    await dismissFirstMowSheet();
+    expect(await isFirstMowSheetDismissed()).toBe(true);
+  });
+});
 
 describe('hasLawn', () => {
   it('is true once at least one zone exists', () => {
