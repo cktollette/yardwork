@@ -1,15 +1,22 @@
-import { Alert } from 'react-native';
+import { Alert, Modal } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import MowTimerScreen from './MowTimerScreen';
 import type { TimerState } from './mowSegments';
 
-// No onboarding Alert: pretend it's dismissed and the lawn is drawn.
+// No onboarding Alert: pretend it's dismissed and the lawn is drawn. First-mow
+// sheet defaults OFF (dismissed) so the transition tests aren't affected; the
+// dedicated test below flips it on.
 jest.mock('../lawn/prompts', () => ({
   shouldShowOnboarding: jest.fn(() => false),
   isOnboardingDismissed: jest.fn(() => Promise.resolve(true)),
   dismissOnboarding: jest.fn(),
   hasLawn: jest.fn(() => true),
+  isFirstMowSheetDismissed: jest.fn(() => Promise.resolve(true)),
+  dismissFirstMowSheet: jest.fn(),
+  shouldShowFirstMowSheet: jest.fn(() => false),
 }));
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const prompts = require('../lawn/prompts');
 jest.mock('./asyncStorageRepositories', () => ({
   propertyRepository: {
     getOrCreateDefault: jest.fn(() => Promise.resolve({ id: 'prop-1', zones: [] })),
@@ -135,6 +142,32 @@ describe('MowTimerScreen — pause / resume / finalize', () => {
     expect(navigation.navigate).toHaveBeenCalledWith('SaveMow', {
       draft: { startedAt: T0, endedAt: T0 + 300_000, durationSeconds: 300 },
     });
+  });
+});
+
+describe('MowTimerScreen — first-mow sheet', () => {
+  const sheetVisible = (tree: ReactTestRenderer): boolean =>
+    tree.root.findByType(Modal).props.visible;
+
+  it('shows the coaching sheet on the first Start, and persists so it never returns', async () => {
+    prompts.isFirstMowSheetDismissed.mockResolvedValue(false);
+    prompts.shouldShowFirstMowSheet.mockReturnValue(true);
+
+    const tree = await renderTimer();
+    expect(sheetVisible(tree)).toBe(false); // not before Start
+
+    press(tree, 'Start');
+    expect(sheetVisible(tree)).toBe(true);
+    expect(prompts.dismissFirstMowSheet).toHaveBeenCalled(); // persisted
+  });
+
+  it('does not show when the gate says no (dismissed, or onboarding active)', async () => {
+    prompts.isFirstMowSheetDismissed.mockResolvedValue(true);
+    prompts.shouldShowFirstMowSheet.mockReturnValue(false);
+    const tree = await renderTimer();
+    press(tree, 'Start');
+    expect(sheetVisible(tree)).toBe(false);
+    expect(prompts.dismissFirstMowSheet).not.toHaveBeenCalled();
   });
 });
 

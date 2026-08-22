@@ -4,6 +4,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import HomeScreen from '../home/HomeScreen';
 import LawnHomeScreen from '../lawn/LawnHomeScreen';
+import MowInProgressBanner from '../mow/MowInProgressBanner';
 import MowListScreen from '../mow/MowListScreen';
 import type { RootStackParamList, RootTabParamList } from '../mow/navigation';
 import StatsScreen from '../stats/StatsScreen';
@@ -48,6 +49,7 @@ export default function RootTabs() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
+    <View style={styles.root}>
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: styles.tabBar,
@@ -104,12 +106,16 @@ export default function RootTabs() {
         }}
       />
     </Tab.Navigator>
+      {/* Floats above the tab bar on every tab while a mow is in progress. */}
+      <MowInProgressBanner />
+    </View>
   );
 }
 
 const CENTER_SIZE = 64;
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   tabBar: {
     backgroundColor: colors.ink,
     borderTopColor: colors.ink,

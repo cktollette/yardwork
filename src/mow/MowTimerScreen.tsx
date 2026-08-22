@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { propertyRepository } from './asyncStorageRepositories';
 import type { RootStackParamList } from './navigation';
@@ -19,12 +19,17 @@ import {
   loadTimerState,
   saveTimerState,
 } from './timerStorage';
+import { publishTimerCleared, publishTimerState } from './useInProgressTimer';
 import {
+  dismissFirstMowSheet,
   dismissOnboarding,
   hasLawn,
+  isFirstMowSheetDismissed,
   isOnboardingDismissed,
+  shouldShowFirstMowSheet,
   shouldShowOnboarding,
 } from '../lawn/prompts';
+import FirstMowSheet from './FirstMowSheet';
 import { colors, radii, spacing, typography } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Timer'>;
@@ -43,6 +48,11 @@ export default function MowTimerScreen({ navigation }: Props) {
   const [timer, setTimer] = useState<TimerState>(IDLE_TIMER);
   // Bumped by the cosmetic interval purely to trigger re-renders.
   const [, setTick] = useState(0);
+  // First-mow coaching sheet: shown on the first Start, but never stacked on the
+  // lawn onboarding. The gate flags are loaded alongside onboarding below; the
+  // ref defaults suppress the sheet until they load.
+  const [firstMowSheetVisible, setFirstMowSheetVisible] = useState(false);
+  const firstMowGateRef = useRef({ onboardingActive: true, firstMowSheetDismissed: true });
   const running = isTimerRunning(timer);
   const paused = isPaused(timer);
   const idle = !running && !paused;
@@ -52,7 +62,10 @@ export default function MowTimerScreen({ navigation }: Props) {
   useEffect(() => {
     let active = true;
     loadTimerState().then((restored) => {
-      if (active && restored) setTimer(restored);
+      if (active && restored) {
+        setTimer(restored);
+        publishTimerState(restored); // keep the shared store (banner) in sync
+      }
     });
     return () => {
       active = false;
@@ -64,19 +77,20 @@ export default function MowTimerScreen({ navigation }: Props) {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [property, dismissed] = await Promise.all([
+      const [property, dismissed, firstMowSheetDismissed] = await Promise.all([
         propertyRepository.getOrCreateDefault(),
         isOnboardingDismissed(),
+        isFirstMowSheetDismissed(),
       ]);
       if (!active) return;
-      if (
-        !shouldShowOnboarding({
-          hasBoundary: hasLawn(property.zones),
-          dismissed,
-        })
-      ) {
-        return;
-      }
+      const onboardingActive = shouldShowOnboarding({
+        hasBoundary: hasLawn(property.zones),
+        dismissed,
+      });
+      // Record the gate for the first-mow sheet so a first Start can decide
+      // synchronously without re-hitting storage (and never stack on onboarding).
+      firstMowGateRef.current = { onboardingActive, firstMowSheetDismissed };
+      if (!onboardingActive) return;
       Alert.alert(
         'Welcome to Yardwork',
         'Trace your lawn to unlock area and efficiency stats. You can always do this later from Stats.',
@@ -120,8 +134,17 @@ export default function MowTimerScreen({ navigation }: Props) {
   const apply = (next: TimerState) => {
     setTimer(next);
     void saveTimerState(next);
+    publishTimerState(next); // mirror into the shared store for the cross-tab banner
   };
-  const handleStart = () => apply(startTimer(Date.now()));
+  const handleStart = () => {
+    apply(startTimer(Date.now()));
+    const { onboardingActive, firstMowSheetDismissed } = firstMowGateRef.current;
+    if (shouldShowFirstMowSheet({ onboardingActive, firstMowSheetDismissed })) {
+      setFirstMowSheetVisible(true);
+      firstMowGateRef.current.firstMowSheetDismissed = true; // never reshow this session
+      void dismissFirstMowSheet(); // persist so it never returns
+    }
+  };
   const handlePause = () => apply(pause(timer, Date.now()));
   const handleResume = () => apply(resume(timer, Date.now()));
 
@@ -132,6 +155,7 @@ export default function MowTimerScreen({ navigation }: Props) {
     const draft = finalize(timer, Date.now());
     setTimer(IDLE_TIMER);
     void clearTimerState();
+    publishTimerCleared();
     navigation.navigate('SaveMow', { draft });
   };
 
@@ -188,6 +212,11 @@ export default function MowTimerScreen({ navigation }: Props) {
           </Pressable>
         </View>
       )}
+
+      <FirstMowSheet
+        visible={firstMowSheetVisible}
+        onDismiss={() => setFirstMowSheetVisible(false)}
+      />
     </View>
   );
 }

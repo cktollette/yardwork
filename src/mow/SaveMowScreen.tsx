@@ -19,7 +19,7 @@ import ToolTypePicker from './ToolTypePicker';
 import { mostRecentToolTypes, normalizeToolTypes } from './tools';
 import PhotoSlots, { type PhotoSlot } from './PhotoSlots';
 import ZonePicker, { type PickerZone } from './ZonePicker';
-import { formatShortDuration, needsShortMowConfirmation } from './mowValidation';
+import { needsShortMowConfirmation, shortMowConfirmationTitle } from './mowValidation';
 import { captureWeatherForMow } from '../weather/captureWeatherForMow';
 import { captureActivityForMow } from '../activity/captureActivityForMow';
 import type { RootStackScreenProps } from './navigation';
@@ -175,13 +175,20 @@ export default function SaveMowScreen({ navigation, route }: Props) {
     navigation.goBack();
   }, [navigation]);
 
-  // A sub-floor duration is usually a timer mis-tap, so soft-confirm before
-  // saving rather than block — a genuinely quick pass still saves untouched.
-  // Timer flow only; editing an existing mow (MowDetailScreen) never gates.
+  // A sub-floor active duration is usually a timer mis-tap, so soft-confirm
+  // before saving rather than block — a genuinely quick pass still saves
+  // untouched. The copy distinguishes a mostly-paused mow (long wall-clock, little
+  // active time) from a genuinely quick one, using the wall-clock span the draft
+  // already carries (endedAt - startedAt, pauses included). Timer flow only;
+  // editing an existing mow (MowDetailScreen) never gates.
   const handleSave = useCallback(() => {
     if (needsShortMowConfirmation(draft.durationSeconds)) {
+      const wallclockSeconds = Math.max(
+        0,
+        Math.floor((draft.endedAt - draft.startedAt) / 1000),
+      );
       Alert.alert(
-        `That was quick — save this ${formatShortDuration(draft.durationSeconds)} mow?`,
+        shortMowConfirmationTitle(draft.durationSeconds, wallclockSeconds),
         undefined,
         [
           { text: 'Save anyway', onPress: () => void performSave() },

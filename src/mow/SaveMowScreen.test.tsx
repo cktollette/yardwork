@@ -59,12 +59,16 @@ function draft(durationSeconds: number): DraftMow {
 }
 
 async function renderSave(durationSeconds: number): Promise<ReactTestRenderer> {
+  return renderSaveWith(draft(durationSeconds));
+}
+
+async function renderSaveWith(d: DraftMow): Promise<ReactTestRenderer> {
   let tree!: ReactTestRenderer;
   await act(async () => {
     tree = create(
       <SaveMowScreen
         navigation={navigation as never}
-        route={{ params: { draft: draft(durationSeconds) } } as never}
+        route={{ params: { draft: d } } as never}
       />,
     );
   });
@@ -146,6 +150,20 @@ describe('SaveMowScreen — short-mow confirmation', () => {
     expect(mowRepository.saveMow).toHaveBeenCalledWith(
       expect.objectContaining({ durationSeconds: 180 }),
     );
+  });
+
+  it('uses the mostly-paused copy for a long, mostly-paused mow', async () => {
+    const tree = await renderSaveWith({
+      startedAt: STARTED_AT,
+      endedAt: STARTED_AT + 1200 * 1000, // 20 min wall-clock
+      durationSeconds: 150, // only 2.5 min active
+    });
+    await pressSave(tree);
+
+    expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe(
+      'You were paused for most of this one. Save 2 minutes of mowing?',
+    );
+    expect(mowRepository.saveMow).not.toHaveBeenCalled();
   });
 });
 
