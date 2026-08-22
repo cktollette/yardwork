@@ -19,6 +19,7 @@ import {
   loadTimerState,
   saveTimerState,
 } from './timerStorage';
+import { publishTimerCleared, publishTimerState } from './useInProgressTimer';
 import {
   dismissOnboarding,
   hasLawn,
@@ -52,7 +53,10 @@ export default function MowTimerScreen({ navigation }: Props) {
   useEffect(() => {
     let active = true;
     loadTimerState().then((restored) => {
-      if (active && restored) setTimer(restored);
+      if (active && restored) {
+        setTimer(restored);
+        publishTimerState(restored); // keep the shared store (banner) in sync
+      }
     });
     return () => {
       active = false;
@@ -120,6 +124,7 @@ export default function MowTimerScreen({ navigation }: Props) {
   const apply = (next: TimerState) => {
     setTimer(next);
     void saveTimerState(next);
+    publishTimerState(next); // mirror into the shared store for the cross-tab banner
   };
   const handleStart = () => apply(startTimer(Date.now()));
   const handlePause = () => apply(pause(timer, Date.now()));
@@ -132,6 +137,7 @@ export default function MowTimerScreen({ navigation }: Props) {
     const draft = finalize(timer, Date.now());
     setTimer(IDLE_TIMER);
     void clearTimerState();
+    publishTimerCleared();
     navigation.navigate('SaveMow', { draft });
   };
 
