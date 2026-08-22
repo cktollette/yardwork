@@ -9,10 +9,6 @@ import {
   useUnfinishedMowRecovery,
 } from './unfinishedMowRecovery';
 
-jest.mock('./asyncStorageRepositories', () => ({
-  mowRepository: { saveMow: jest.fn() },
-  propertyRepository: { getOrCreateDefault: jest.fn() },
-}));
 jest.mock('./timerStorage', () => ({
   loadTimerState: jest.fn(),
   loadUnrecoverableRaw: jest.fn(),
@@ -20,7 +16,6 @@ jest.mock('./timerStorage', () => ({
   salvageDraft: jest.fn(),
 }));
 
-import { mowRepository, propertyRepository } from './asyncStorageRepositories';
 import {
   clearUnrecoverable,
   loadTimerState,
@@ -28,23 +23,21 @@ import {
   salvageDraft,
 } from './timerStorage';
 
-const saveMow = mowRepository.saveMow as jest.Mock;
-const getProperty = propertyRepository.getOrCreateDefault as jest.Mock;
 const loadState = loadTimerState as jest.Mock;
 const loadRaw = loadUnrecoverableRaw as jest.Mock;
 const clearRaw = clearUnrecoverable as jest.Mock;
 const salvage = salvageDraft as jest.Mock;
 
 const T0 = 1_700_000_000_000;
-const DRAFT = { startedAt: T0, endedAt: T0, durationSeconds: 0 };
+const DRAFT = { startedAt: T0, endedAt: T0 + 300_000, durationSeconds: 300 };
 
 /** Headless host that just runs the hook, so we can mount it with the renderer. */
-function Harness({ open }: { open: (mowId: string) => void }) {
+function Harness({ open }: { open: (draft: typeof DRAFT) => void }) {
   useUnfinishedMowRecovery(open);
   return null;
 }
 
-async function mountHook(open: (mowId: string) => void = jest.fn()): Promise<void> {
+async function mountHook(open: (draft: typeof DRAFT) => void = jest.fn()): Promise<void> {
   await act(async () => {
     create(createElement(Harness, { open }));
   });
@@ -59,8 +52,6 @@ function alertButtons(): { text: string; onPress?: () => void }[] {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  getProperty.mockResolvedValue({ id: 'prop-1' });
-  saveMow.mockResolvedValue({ id: 'mow-9' });
   clearRaw.mockResolvedValue(undefined);
   // The hook forces a load first (that's what quarantines a corrupt blob); its
   // result is irrelevant to these unit cases, which drive the slot directly.
@@ -98,7 +89,7 @@ it('prompts with the exact ASCII copy and salvaged date', async () => {
   expect(labels).toEqual([RECOVERY_DISMISS_LABEL, RECOVERY_CONFIRM_LABEL]);
 });
 
-it('Yes creates a placeholder mow at the salvaged start, clears the slot, and opens the editor', async () => {
+it('Yes routes the salvaged draft into SaveMow and retires the quarantine slot (writes nothing itself)', async () => {
   loadRaw.mockResolvedValue('{"segments":"x"}');
   salvage.mockReturnValue(DRAFT);
   const open = jest.fn();
@@ -109,17 +100,12 @@ it('Yes creates a placeholder mow at the salvaged start, clears the slot, and op
     yes.onPress?.();
   });
 
-  expect(saveMow).toHaveBeenCalledWith({
-    propertyId: 'prop-1',
-    startedAt: T0,
-    endedAt: T0,
-    durationSeconds: 0,
-  });
+  // Hands the exact salvaged draft to the normal save flow — no record created here.
+  expect(open).toHaveBeenCalledWith(DRAFT);
   expect(clearRaw).toHaveBeenCalled();
-  expect(open).toHaveBeenCalledWith('mow-9');
 });
 
-it('Dismiss clears the slot and creates nothing', async () => {
+it('Dismiss clears the slot and routes nowhere', async () => {
   loadRaw.mockResolvedValue('{"segments":"x"}');
   salvage.mockReturnValue(DRAFT);
   const open = jest.fn();
@@ -131,6 +117,5 @@ it('Dismiss clears the slot and creates nothing', async () => {
   });
 
   expect(clearRaw).toHaveBeenCalled();
-  expect(saveMow).not.toHaveBeenCalled();
   expect(open).not.toHaveBeenCalled();
 });

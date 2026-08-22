@@ -35,8 +35,10 @@ export default function HomeScreen({ navigation }: Props) {
   // On launch, offer to manually log an in-progress mow that survived a kill but
   // could not be restored (quarantined by timerStorage). Home is the launch
   // landing screen, so a mount here is "on launch"; the hook shows at most once.
+  // "Yes" routes the salvaged draft into the normal SaveMow flow — no record is
+  // written unless the user taps Save there.
   useUnfinishedMowRecovery(
-    useCallback((mowId: string) => navigation.navigate('MowDetail', { mowId }), [navigation]),
+    useCallback((draft) => navigation.navigate('SaveMow', { draft }), [navigation]),
   );
 
   useFocusEffect(
