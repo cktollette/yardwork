@@ -47,8 +47,16 @@ export function publishTimerCleared(): void {
 export async function hydrateInProgressTimer(): Promise<void> {
   if (hydrateStarted) return;
   hydrateStarted = true;
-  const restored = await loadTimerState();
-  current = { loaded: true, state: restored ?? IDLE_TIMER };
+  try {
+    const restored = await loadTimerState();
+    current = { loaded: true, state: restored ?? IDLE_TIMER };
+  } catch (e) {
+    // loadTimerState is designed never to throw, but if it ever does the gate
+    // must still RESOLVE (to idle -> Tabs) rather than hang forever on the
+    // pre-navigator loading screen.
+    if (__DEV__) console.warn(`[timer] hydrate failed, resolving idle: ${String(e)}`);
+    current = { loaded: true, state: IDLE_TIMER };
+  }
   emit();
 }
 

@@ -101,3 +101,30 @@ it('cold launch with no in-progress mow lands on Tabs', async () => {
   await act(async () => {});
   expect(navRef.getCurrentRoute()?.name).toBe('Tabs');
 });
+
+it('resolves to Tabs and dev-logs when the timer load rejects (never stuck on LOADING)', async () => {
+  // loadTimerState is built never to throw; if it ever did, the gate must still
+  // resolve rather than hang on the pre-navigator loading screen.
+  const timerStorage = require('./timerStorage');
+  const loadSpy = jest
+    .spyOn(timerStorage, 'loadTimerState')
+    .mockRejectedValue(new Error('boom'));
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+  const navRef = makeRef();
+  let tree!: ReactTestRenderer;
+  act(() => {
+    tree = create(<AppGate navRef={navRef} />);
+  });
+  expect(JSON.stringify(tree.toJSON())).toContain('LOADING');
+
+  await act(async () => {});
+  await act(async () => {}); // flush the rejection + catch + emit
+
+  expect(JSON.stringify(tree.toJSON())).not.toContain('LOADING');
+  expect(navRef.getCurrentRoute()?.name).toBe('Tabs');
+  expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[timer]'));
+
+  loadSpy.mockRestore();
+  warnSpy.mockRestore();
+});
