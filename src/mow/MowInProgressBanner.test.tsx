@@ -3,8 +3,15 @@ import { IDLE_TIMER, pause, start, type TimerState } from './mowSegments';
 import MowInProgressBanner from './MowInProgressBanner';
 
 const mockNavigate = jest.fn();
+// Root-stack state the banner reads to suppress itself under a pushed screen.
+let mockNavState: { index: number; routes: { name: string }[] } = {
+  index: 0,
+  routes: [{ name: 'Tabs' }],
+};
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
+  useNavigationState: (selector: (s: typeof mockNavState) => unknown) =>
+    selector(mockNavState),
 }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -41,6 +48,7 @@ beforeEach(() => {
   jest.useFakeTimers({ doNotFake: ['Date'] });
   jest.spyOn(Date, 'now').mockImplementation(() => NOW);
   NOW = T0;
+  mockNavState = { index: 0, routes: [{ name: 'Tabs' }] }; // on the tabs by default
 });
 afterEach(() => {
   jest.useRealTimers();
@@ -92,4 +100,16 @@ it('tapping the bar reopens the Timer', () => {
   const t = render();
   press(t, 'Open the mow in progress');
   expect(mockNavigate).toHaveBeenCalledWith('Timer');
+});
+
+it('is suppressed while the Timer screen is pushed over the tabs', () => {
+  mockNavState = { index: 1, routes: [{ name: 'Tabs' }, { name: 'Timer' }] };
+  useTimer.mockReturnValue({ loaded: true, state: start(T0) }); // running
+  expect(render().toJSON()).toBeNull();
+});
+
+it('is suppressed while SaveMow is pushed over the tabs', () => {
+  mockNavState = { index: 1, routes: [{ name: 'Tabs' }, { name: 'SaveMow' }] };
+  useTimer.mockReturnValue({ loaded: true, state: pause(start(T0), T0 + 1000) }); // paused
+  expect(render().toJSON()).toBeNull();
 });

@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useNavigationState } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -32,19 +32,25 @@ export default function MowInProgressBanner() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { loaded, state } = useInProgressTimer();
   const insets = useSafeAreaInsets();
+  // The banner lives on the tab screen; its nearest navigator is the ROOT stack.
+  // Suppress it whenever any screen is pushed over the tabs (Timer, SaveMow, ...)
+  // so it never sits — or ticks — under the mow flow, which shows its own timer.
+  const topRoute = useNavigationState((s) => s.routes[s.index]?.name);
   const [, setTick] = useState(0);
 
   const running = isRunning(state);
   const paused = isPaused(state);
-  const visible = loaded && (running || paused);
+  const covered = topRoute !== 'Tabs';
+  const visible = loaded && (running || paused) && !covered;
 
-  // Tick once a second only while running, so the elapsed display advances; a
-  // paused bar is static (elapsed is derived from timestamps, D-011).
+  // Tick once a second only while running AND visible, so the elapsed display
+  // advances; a paused (or hidden) bar is static (elapsed is timestamp-derived,
+  // D-011).
   useEffect(() => {
-    if (!running) return;
+    if (!running || !visible) return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [running]);
+  }, [running, visible]);
 
   if (!visible) return null;
 
