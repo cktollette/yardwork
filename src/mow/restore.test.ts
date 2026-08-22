@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { activeDurationSeconds, pause, start, type TimerState } from './mowSegments';
 import {
   RUNNING_TIMER_KEY,
+  UNRECOVERABLE_TIMER_KEY,
   clearTimerState,
   loadTimerState,
   saveTimerState,
@@ -47,15 +48,18 @@ describe('legacy format tolerance', () => {
   });
 });
 
-describe('empty / corrupt / cleared', () => {
+describe('empty / degenerate / cleared', () => {
   it('returns null when nothing is persisted', async () => {
     expect(await loadTimerState()).toBeNull();
   });
 
-  it('returns null and does not throw on corrupt data', async () => {
-    for (const bad of ['not-a-number', '', '{"lol":true}', '{"segments":"x"}', '0']) {
-      await AsyncStorage.setItem(RUNNING_TIMER_KEY, bad);
+  it('treats empty and degenerate-number values as "no timer" (not corrupt)', async () => {
+    // These are meaningless-but-harmless markers, not structured-but-invalid data;
+    // keep the old contract (null, no throw) AND do not quarantine them.
+    for (const degenerate of ['', '   ', '0', '-1']) {
+      await AsyncStorage.setItem(RUNNING_TIMER_KEY, degenerate);
       await expect(loadTimerState()).resolves.toBeNull();
+      expect(await AsyncStorage.getItem(UNRECOVERABLE_TIMER_KEY)).toBeNull();
     }
   });
 
@@ -63,5 +67,30 @@ describe('empty / corrupt / cleared', () => {
     await saveTimerState(start(T0));
     await clearTimerState();
     expect(await loadTimerState()).toBeNull();
+  });
+});
+
+describe('corrupt in-progress blob is quarantined, not silently dropped', () => {
+  // REGRESSION PIN (fails on main). Honest scope: a VALID paused blob already
+  // restores on main, so the reported "fresh timer after a mid-pause kill" is not
+  // reproducible from a well-formed blob. The real, reproducible gap is the
+  // CORRUPT path: on main a corrupt blob loads as null and is lost with no trace;
+  // here it must be copied to the quarantine slot (never deleted) so launch-time
+  // recovery can offer to log it manually. This test asserts that quarantine and
+  // fails against current main (which has no unrecoverable slot).
+  it.each([
+    ['unparseable', 'not-a-number'],
+    ['object without segments', '{"lol":true}'],
+    ['segments not an array', '{"segments":"x"}'],
+    ['segment missing endedAt', '{"segments":[{"startedAt":1}],"runningSince":null}'],
+  ])('quarantines a %s blob and returns null', async (_label, bad) => {
+    await AsyncStorage.setItem(RUNNING_TIMER_KEY, bad);
+
+    expect(await loadTimerState()).toBeNull();
+
+    // Copied verbatim to the quarantine slot...
+    expect(await AsyncStorage.getItem(UNRECOVERABLE_TIMER_KEY)).toBe(bad);
+    // ...and only then removed from the running key (never destroyed before copy).
+    expect(await AsyncStorage.getItem(RUNNING_TIMER_KEY)).toBeNull();
   });
 });

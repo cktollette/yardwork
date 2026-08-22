@@ -8,6 +8,7 @@ import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositori
 import { formatDuration, formatMowDate } from '../mow/format';
 import type { Mow, Property } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
+import { useUnfinishedMowRecovery } from '../mow/unfinishedMowRecovery';
 import { deriveStats } from '../stats/deriveStats';
 import { coveredAreaSqFt, totalAreaSqFt } from '../lawn/zones';
 import { colors, spacing, typography } from '../theme';
@@ -30,6 +31,13 @@ function compact(n: number): string {
 export default function HomeScreen({ navigation }: Props) {
   const [mows, setMows] = useState<Mow[] | null>(null);
   const [property, setProperty] = useState<Property | null>(null);
+
+  // On launch, offer to manually log an in-progress mow that survived a kill but
+  // could not be restored (quarantined by timerStorage). Home is the launch
+  // landing screen, so a mount here is "on launch"; the hook shows at most once.
+  useUnfinishedMowRecovery(
+    useCallback((mowId: string) => navigation.navigate('MowDetail', { mowId }), [navigation]),
+  );
 
   useFocusEffect(
     useCallback(() => {

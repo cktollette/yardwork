@@ -11,6 +11,11 @@ jest.mock('../mow/asyncStorageRepositories', () => ({
   mowRepository: { listMows: jest.fn() },
   propertyRepository: { getOrCreateDefault: jest.fn() },
 }));
+// The launch-time unfinished-mow recovery hook is covered by its own test; stub
+// it here so Home's tests stay focused on the dashboard and touch no storage.
+jest.mock('../mow/unfinishedMowRecovery', () => ({
+  useUnfinishedMowRecovery: jest.fn(),
+}));
 import {
   mowRepository,
   propertyRepository,
