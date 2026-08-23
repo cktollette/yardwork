@@ -64,7 +64,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //     — absent reads as "no calories captured", so no data transform runs on
 //     upgrade; older activity objects (with or without the field) load cleanly
 //     and are never backfilled.
-export const SCHEMA_VERSION = 14;
+// v15: Property gained optional, user-DISCLOSED location fields — `locationCity`,
+//     `locationRegion`, `locationCountry` (ISO 3166-1 alpha-2 code), and
+//     `hardinessZone` (a value from the bundled 1a–13b list) — shown on the
+//     Profile header. Never geocoded or derived from the polygon (D-069). Purely
+//     additive — absent reads as "not disclosed", so no data transform runs on
+//     upgrade; older properties without the fields load cleanly.
+export const SCHEMA_VERSION = 15;
 export const SCHEMA_VERSION_KEY = '@yardwork/schema-version';
 
 /**

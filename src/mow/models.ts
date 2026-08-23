@@ -52,6 +52,28 @@ export interface Property {
    * `boundary` at v8: the old polygon becomes a single "Lawn" zone.
    */
   zones: Zone[];
+  /**
+   * Optional, user-DISCLOSED location shown on the Profile header (v15). Never
+   * geocoded and never derived from the polygon/centroid — the user types/picks
+   * these (D-069: location is disclosure only). Absent = not disclosed.
+   *
+   * City / region are trimmed free text, capped ~40 chars; an empty or
+   * whitespace-only entry is stored as ABSENT, never "" (see normalizeLocationPatch).
+   */
+  locationCity?: string;
+  /** Labeled "State / Region" in the UI. Trimmed free text, ~40-char cap. */
+  locationRegion?: string;
+  /**
+   * ISO 3166-1 alpha-2 country CODE (e.g. "US", "NL"), selected from the bundled
+   * list — never free text. Display names resolve from that list at render time.
+   */
+  locationCountry?: string;
+  /**
+   * USDA hardiness zone, a value from the bundled 1a–13b list (e.g. "8a"),
+   * user-selected from a chip row — never free text and never derived from the
+   * polygon (D-069). Absent = not disclosed.
+   */
+  hardinessZone?: string;
 }
 
 /** A completed, persisted mow. Always tied to exactly one Property (D-005). */

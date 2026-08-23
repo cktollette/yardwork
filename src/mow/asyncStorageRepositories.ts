@@ -11,6 +11,7 @@ import {
   type MowRepository,
   type PropertyRepository,
   type ZoneEdit,
+  type PropertyLocationEdit,
 } from './repositories';
 import { ensureSchemaVersion } from '../storage/schema';
 import { photoStore } from '../photos';
@@ -356,6 +357,32 @@ class AsyncStoragePropertyRepository implements PropertyRepository {
       ...p,
       zones: p.zones.filter((z) => z.id !== zoneId),
     }));
+  }
+
+  async updateLocation(
+    propertyId: string,
+    patch: PropertyLocationEdit,
+  ): Promise<Property> {
+    const KEYS = [
+      'locationCity',
+      'locationRegion',
+      'locationCountry',
+      'hardinessZone',
+    ] as const;
+    return this.updateProperty(propertyId, (p) => {
+      const updated: Property = { ...p };
+      // Present key sets a truthy value or clears it; an omitted key is left
+      // as-is. The caller passes an already-normalized patch (empty collapsed to
+      // undefined, country/zone validated), so this just applies it.
+      for (const key of KEYS) {
+        if (key in patch) {
+          const value = patch[key];
+          if (value) updated[key] = value;
+          else delete updated[key];
+        }
+      }
+      return updated;
+    });
   }
 
   /**
