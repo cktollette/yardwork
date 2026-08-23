@@ -145,6 +145,16 @@ describe('MowTimerScreen — pause / resume / finalize', () => {
   });
 });
 
+describe('MowTimerScreen — Statistics link (orphan-safe after tab restructure)', () => {
+  it('the idle Stats link navigates to the pushed Statistics route, not a dead tab', async () => {
+    const tree = await renderTimer(); // idle by default
+    press(tree, 'Statistics');
+    expect(navigation.navigate).toHaveBeenCalledWith('Statistics');
+    // It must NOT reach the removed Stats tab.
+    expect(navigation.navigate).not.toHaveBeenCalledWith('Tabs', { screen: 'Stats' });
+  });
+});
+
 describe('MowTimerScreen — first-mow sheet', () => {
   const sheetVisible = (tree: ReactTestRenderer): boolean =>
     tree.root.findByType(Modal).props.visible;
