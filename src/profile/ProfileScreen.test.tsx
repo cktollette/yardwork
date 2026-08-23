@@ -76,7 +76,7 @@ describe('empty install', () => {
     const shown = json(t);
     expect(shown).toContain('My Lawn'); // fallback name
     expect(shown).toContain('Add location'); // discoverable placeholder row
-    expect(shown).not.toContain('"Edit"'); // no edit affordance when there's no line
+    expect(shown).not.toContain('location-edit-icon'); // no pencil when there's no line
     // Distance is gated (no activity): an unlock hint replaces the ring, so the
     // gate is proven by the hint's presence and the absence of a distance ring
     // (a raw null would surface as a "miles" ring with an empty/null value).
@@ -111,7 +111,7 @@ describe('seeded', () => {
     const t = await render();
     const shown = json(t);
     expect(shown).toContain('Dallas, Texas - Zone 8a - Fescue'); // header line
-    expect(shown).toContain('"Edit"'); // trailing edit affordance on the line
+    expect(shown).toContain('location-edit-icon'); // trailing pencil affordance
     expect(shown).toContain('miles'); // distance ring present
     expect(shown).not.toContain('Mow with your phone'); // hint gone
     expect(shown).toContain('2 mows - '); // Statistics subtitle

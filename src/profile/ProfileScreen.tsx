@@ -11,6 +11,7 @@ import type { RootTabScreenProps } from '../mow/navigation';
 import { deriveStats } from '../stats/deriveStats';
 import { colors, radii, spacing, typography } from '../theme';
 import LocationSheet from './LocationSheet';
+import PencilIcon from './PencilIcon';
 import { resolveCountryName } from './location';
 import { formatProfileLocationLine, profileDisplayName } from './profileHeader';
 import {
@@ -105,12 +106,13 @@ export default function ProfileScreen({ navigation }: Props) {
           style={({ pressed }) => pressed && styles.pressed}
         >
           {locationLine ? (
-            // The whole line wraps (no numberOfLines cap); a muted trailing "Edit"
-            // affordance is part of the same tap target. ASCII only, so text — not
-            // a pencil glyph.
-            <Text style={styles.location}>
-              {locationLine} <Text style={styles.editGlyph}>Edit</Text>
-            </Text>
+            // The line wraps (no numberOfLines cap); a muted pencil icon trails it
+            // inside the same tap target. (The ASCII rule governs text strings, not
+            // vector icons.)
+            <View style={styles.locationRow}>
+              <Text style={styles.location}>{locationLine}</Text>
+              <PencilIcon />
+            </View>
           ) : (
             // No fields yet: a discoverable placeholder row in the same slot.
             <Text style={styles.locationEmpty}>Add location</Text>
@@ -177,8 +179,8 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.lg },
   header: { gap: spacing.xs },
   name: { fontSize: typography.titleLarge, fontWeight: '700', color: colors.ink },
-  location: { fontSize: typography.body, color: colors.textSecondary },
-  editGlyph: { color: colors.textMuted, fontWeight: '600' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  location: { flex: 1, fontSize: typography.body, color: colors.textSecondary },
   locationEmpty: { fontSize: typography.body, color: colors.primary },
   cardLabel: {
     fontSize: typography.caption,
