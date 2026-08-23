@@ -48,8 +48,10 @@ describe('RootTabs', () => {
     expect(json).toContain('Welcome to Klippa');
     // The center action button.
     expect(json).toContain('MOW');
-    // Tab labels present, including the new Log tab.
-    expect(json).toContain('Stats');
+    // Profile occupies the former Stats slot; the Stats tab is gone (the full
+    // stats screen is now a pushed `Statistics` route reached from Profile).
+    expect(json).toContain('Profile');
+    expect(json).not.toContain('Stats');
     expect(json).toContain('Log');
     expect(json).toContain('Lawn');
   });

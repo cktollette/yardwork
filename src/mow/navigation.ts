@@ -14,7 +14,9 @@ import type { DraftMow } from './timer';
  */
 export type RootTabParamList = {
   Home: undefined;
-  Stats: undefined;
+  /** The Profile tab — occupies the former Stats slot. The full stats screen is
+   *  reachable from Profile as the pushed `Statistics` route. */
+  Profile: undefined;
   /**
    * The center action button. Never rendered as a screen — its custom
    * tabBarButton pushes the Timer flow instead of switching tabs — but the
@@ -29,6 +31,8 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<RootTabParamList> | undefined;
   Timer: undefined;
+  /** The full stats screen — pushed from the Profile tab (was the Stats tab). */
+  Statistics: undefined;
   SaveMow: { draft: DraftMow };
   /** Edit or delete a single logged mow, loaded by id. */
   MowDetail: { mowId: string };

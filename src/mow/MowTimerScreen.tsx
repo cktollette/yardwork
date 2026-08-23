@@ -204,9 +204,10 @@ export default function MowTimerScreen({ navigation }: Props) {
       {idle && (
         <View style={styles.links}>
           <Pressable
-            onPress={() => navigation.navigate('Tabs', { screen: 'Stats' })}
+            onPress={() => navigation.navigate('Statistics')}
             style={({ pressed }) => pressed && styles.pressed}
             accessibilityRole="button"
+            accessibilityLabel="Statistics"
           >
             <Text style={styles.link}>Stats</Text>
           </Pressable>

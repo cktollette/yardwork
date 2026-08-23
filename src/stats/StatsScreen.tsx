@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../components/Button';
 import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
 import type { Property } from '../mow/models';
-import type { RootTabScreenProps } from '../mow/navigation';
+import type { RootStackScreenProps } from '../mow/navigation';
 import { hasLawn } from '../lawn/prompts';
 import { coveredAreaSqFt, totalAreaSqFt } from '../lawn/zones';
 import { colors, radii, spacing, typography } from '../theme';
@@ -19,7 +19,7 @@ import {
   type Stats,
 } from './deriveStats';
 
-type Props = RootTabScreenProps<'Stats'>;
+type Props = RootStackScreenProps<'Statistics'>;
 
 function weeks(n: number): string {
   return `${n} ${n === 1 ? 'week' : 'weeks'}`;
@@ -98,8 +98,9 @@ export default function StatsScreen({ navigation }: Props) {
               value={`${Math.round(totalAreaSqFt(property.zones)).toLocaleString()} sq ft`}
             />
             <Pressable
-              // A lawn now has multiple zones; edit them on the Lawn tab.
-              onPress={() => navigation.navigate('Lawn')}
+              // A lawn now has multiple zones; edit them on the Lawn tab. This
+              // screen is now pushed on the root stack, so reach the tab via Tabs.
+              onPress={() => navigation.navigate('Tabs', { screen: 'Lawn' })}
               accessibilityRole="button"
             >
               <Text style={styles.lawnLink}>Manage zones</Text>

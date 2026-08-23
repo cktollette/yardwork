@@ -13,6 +13,7 @@ import type { RootStackParamList } from './src/mow/navigation';
 import SaveMowScreen from './src/mow/SaveMowScreen';
 import { shouldResumeTimer, useInProgressTimer } from './src/mow/useInProgressTimer';
 import RootTabs from './src/navigation/RootTabs';
+import StatsScreen from './src/stats/StatsScreen';
 import { colors } from './src/theme';
 
 // Set the Mapbox public access token once at app start, before any MapView
@@ -64,6 +65,11 @@ export default function App() {
             name="Timer"
             component={MowTimerScreen}
             options={{ title: 'Mow Timer' }}
+          />
+          <Stack.Screen
+            name="Statistics"
+            component={StatsScreen}
+            options={{ title: 'Statistics' }}
           />
           <Stack.Screen
             name="SaveMow"

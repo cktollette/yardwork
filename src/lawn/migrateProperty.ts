@@ -21,6 +21,11 @@ type RawProperty = {
   zones?: Zone[];
   boundary?: Position[] | null;
   areaSqFt?: number | null;
+  // v15 disclosed location fields — carried through the clean-object rebuild.
+  locationCity?: string;
+  locationRegion?: string;
+  locationCountry?: string;
+  hardinessZone?: string;
 };
 
 /**
@@ -34,7 +39,15 @@ type RawProperty = {
  *   - no polygon → `zones: []`.
  */
 export function migrateProperty(raw: RawProperty): Property {
-  const base = { id: raw.id, name: raw.name, createdAt: raw.createdAt };
+  // Preserve the v15 disclosed-location fields (present-only) through the clean
+  // rebuild that strips legacy boundary/areaSqFt.
+  const location = {
+    ...(raw.locationCity != null ? { locationCity: raw.locationCity } : {}),
+    ...(raw.locationRegion != null ? { locationRegion: raw.locationRegion } : {}),
+    ...(raw.locationCountry != null ? { locationCountry: raw.locationCountry } : {}),
+    ...(raw.hardinessZone != null ? { hardinessZone: raw.hardinessZone } : {}),
+  };
+  const base = { id: raw.id, name: raw.name, createdAt: raw.createdAt, ...location };
 
   if (Array.isArray(raw.zones)) {
     // Already v8. Reconstruct a clean object so no legacy boundary/areaSqFt

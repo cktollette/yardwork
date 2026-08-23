@@ -62,6 +62,20 @@ export interface ZoneEdit {
   grassType?: string;
 }
 
+/**
+ * Patch for a Property's user-disclosed location (v15). Every key follows the
+ * present-but-undefined pattern: a present key with a truthy value SETS it, a
+ * present key with `undefined` CLEARS it, an omitted key leaves it unchanged.
+ * Callers pass a normalized patch (empty/whitespace already collapsed to
+ * `undefined`; country/zone already validated against their bundled lists).
+ */
+export interface PropertyLocationEdit {
+  locationCity?: string;
+  locationRegion?: string;
+  locationCountry?: string;
+  hardinessZone?: string;
+}
+
 /** Persistence boundary for properties. See MowRepository for the swap rationale. */
 export interface PropertyRepository {
   /**
@@ -94,4 +108,10 @@ export interface PropertyRepository {
    * leaves a valid empty lawn (`zones: []`).
    */
   deleteZone(propertyId: string, zoneId: string): Promise<Property>;
+  /**
+   * Set/clear the Property's disclosed location fields (v15). Serialized through
+   * the same write-queue as zone edits (D-052). Rejects if the Property doesn't
+   * exist. Returns the updated Property.
+   */
+  updateLocation(propertyId: string, patch: PropertyLocationEdit): Promise<Property>;
 }

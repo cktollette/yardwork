@@ -7,7 +7,7 @@ import LawnHomeScreen from '../lawn/LawnHomeScreen';
 import MowInProgressBanner from '../mow/MowInProgressBanner';
 import MowListScreen from '../mow/MowListScreen';
 import type { RootStackParamList, RootTabParamList } from '../mow/navigation';
-import StatsScreen from '../stats/StatsScreen';
+import ProfileScreen from '../profile/ProfileScreen';
 import { colors, radii, typography } from '../theme';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -71,10 +71,11 @@ export default function RootTabs() {
         }}
       />
       <Tab.Screen
-        name="Stats"
-        component={StatsScreen}
+        name="Profile"
+        component={ProfileScreen}
         options={{
-          title: 'Stats',
+          title: 'Profile',
+          tabBarLabel: 'Profile',
           tabBarIcon: ({ color }) => <TabDot color={color} />,
         }}
       />

@@ -546,3 +546,72 @@ describe('schema version stamp', () => {
     expect(await AsyncStorage.getItem(SCHEMA_VERSION_KEY)).toBe('99');
   });
 });
+
+describe('propertyRepository.updateLocation (v15 disclosed location)', () => {
+  async function seedProperty() {
+    await propertyRepository.getOrCreateDefault();
+    const p = await propertyRepository.getOrCreateDefault();
+    return p.id;
+  }
+
+  it('sets location + zone fields and getById reflects them', async () => {
+    const id = await seedProperty();
+    await propertyRepository.updateLocation(id, {
+      locationCity: 'Dallas',
+      locationRegion: 'Texas',
+      locationCountry: 'US',
+      hardinessZone: '8a',
+    });
+    const p = await propertyRepository.getById(id);
+    expect(p).toMatchObject({
+      locationCity: 'Dallas',
+      locationRegion: 'Texas',
+      locationCountry: 'US',
+      hardinessZone: '8a',
+    });
+  });
+
+  it('clears fields when the patch value is undefined (never persists "")', async () => {
+    const id = await seedProperty();
+    await propertyRepository.updateLocation(id, {
+      locationCity: 'Dallas',
+      locationRegion: 'Texas',
+      locationCountry: 'US',
+      hardinessZone: '8a',
+    });
+    await propertyRepository.updateLocation(id, {
+      locationCity: undefined,
+      locationRegion: undefined,
+      locationCountry: undefined,
+      hardinessZone: undefined,
+    });
+    const p = await propertyRepository.getById(id);
+    expect('locationCity' in (p as object)).toBe(false);
+    expect(p?.locationRegion).toBeUndefined();
+    expect(p?.locationCountry).toBeUndefined();
+    expect(p?.hardinessZone).toBeUndefined();
+  });
+
+  it('serializes with zone writes through the shared queue (D-052, no lost update)', async () => {
+    const id = await seedProperty();
+    await Promise.all([
+      propertyRepository.updateLocation(id, { locationCity: 'Dallas' }),
+      propertyRepository.addZone(id, {
+        vertices: [
+          [-96.82, 33.15],
+          [-96.82, 33.14],
+          [-96.83, 33.14],
+        ] as Position[],
+      }),
+    ]);
+    const p = await propertyRepository.getById(id);
+    expect(p?.locationCity).toBe('Dallas'); // location write not lost
+    expect(p?.zones).toHaveLength(1); // zone write not lost
+  });
+
+  it('rejects an unknown property id', async () => {
+    await expect(
+      propertyRepository.updateLocation('nope', { locationCity: 'X' }),
+    ).rejects.toThrow();
+  });
+});
