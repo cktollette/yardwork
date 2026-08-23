@@ -53,6 +53,11 @@ export interface StatsMow {
   coveredAreaSqFt?: number;
   /** Job types recorded on this mow (D-037 enum values); absent means none. */
   toolTypes?: EquipmentType[];
+  /**
+   * Captured activity for this mow; absent means none was captured. Only the
+   * distance is read here (Mow.activity satisfies this structurally).
+   */
+  activity?: { distanceMi?: number };
 }
 
 export interface DeriveStatsOptions {
@@ -77,6 +82,12 @@ export interface Stats {
   longestStreakWeeks: number;
   /** area covered per minute across all mows; null without a polygon or time */
   sqFtPerMinute: number | null;
+  /**
+   * Total walking/running distance (miles, 2-decimal) across mows that captured
+   * activity; null when NO mow has activity (a data-availability gate, D-011 —
+   * the UI shows an unlock hint, never a raw null).
+   */
+  lifetimeDistanceMi: number | null;
   /**
    * Mean height of cut (inches, 2-decimal) over mows that have one; null below
    * MIN_MOWS_FOR_AVG_HOC mows-with-a-HOC.
@@ -200,6 +211,16 @@ export function deriveStats(mows: StatsMow[], opts: DeriveStatsOptions): Stats {
   const mostUsedTool = toolRanking[0] ?? null;
   const runnerUpTool = toolRanking[1] ?? null;
 
+  // Lifetime distance, gated on activity existing: sum distanceMi across mows
+  // that captured activity; null when NONE did (so the UI shows an unlock hint).
+  const distances = mows
+    .map((m) => m.activity?.distanceMi)
+    .filter((d): d is number => typeof d === 'number' && Number.isFinite(d));
+  const lifetimeDistanceMi =
+    distances.length > 0
+      ? Math.round(distances.reduce((sum, d) => sum + d, 0) * 100) / 100
+      : null;
+
   const { current, longest } = computeStreaks(
     mows.map((m) => isoWeekIndex(m.startedAt)),
     isoWeekIndex(now),
@@ -214,6 +235,7 @@ export function deriveStats(mows: StatsMow[], opts: DeriveStatsOptions): Stats {
     currentStreakWeeks: current,
     longestStreakWeeks: longest,
     sqFtPerMinute,
+    lifetimeDistanceMi,
     averageHocInches,
     mostUsedTool,
     runnerUpTool,

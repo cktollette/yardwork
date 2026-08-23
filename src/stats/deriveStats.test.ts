@@ -377,3 +377,27 @@ describe('deriveStats — most-used tool (subset gate + runner-up)', () => {
     expect(s.runnerUpTool).toBeNull();
   });
 });
+
+describe('lifetimeDistanceMi (gated on activity data)', () => {
+  const withDist = (startISO: string, distanceMi: number): StatsMow => ({
+    ...mow(startISO),
+    activity: { distanceMi },
+  });
+
+  it('is null when no mow captured activity', () => {
+    const s = deriveStats([mow('2026-07-20T10:00:00Z')], { now: NOW });
+    expect(s.lifetimeDistanceMi).toBeNull();
+  });
+
+  it('sums distance across activity-bearing mows (2 decimals), ignoring the rest', () => {
+    const s = deriveStats(
+      [
+        withDist('2026-07-18T10:00:00Z', 0.9),
+        mow('2026-07-19T10:00:00Z'), // no activity — ignored
+        withDist('2026-07-20T10:00:00Z', 1.234),
+      ],
+      { now: NOW },
+    );
+    expect(s.lifetimeDistanceMi).toBe(2.13); // 0.9 + 1.234 -> 2.134 -> 2.13
+  });
+});
