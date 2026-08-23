@@ -77,13 +77,12 @@ export default function ProfileScreen({ navigation }: Props) {
   if (property === null || mows === null) return <View style={styles.container} />;
 
   const displayName = profileDisplayName(property);
-  const primaryGrass = property.zones[0]?.grassType;
   const locationLine = formatProfileLocationLine({
     city: property.locationCity,
     region: property.locationRegion,
     countryName: resolveCountryName(property.locationCountry),
     zone: property.hardinessZone,
-    grassType: primaryGrass,
+    grassTypes: property.zones.map((z) => z.grassType),
   });
 
   const totalArea = totalAreaSqFt(property.zones);

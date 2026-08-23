@@ -41,7 +41,7 @@ function headerLine(p: Property): string {
     region: p.locationRegion,
     countryName: resolveCountryName(p.locationCountry),
     zone: p.hardinessZone,
-    grassType: p.zones[0]?.grassType,
+    grassTypes: p.zones.map((z) => z.grassType),
   });
 }
 
