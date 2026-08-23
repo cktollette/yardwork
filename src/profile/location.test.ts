@@ -1,12 +1,15 @@
 import {
   COUNTRIES,
   LOCATION_FIELD_MAX,
+  US_STATES,
   USDA_ZONES,
   isCountryCode,
   isHardinessZone,
+  matchStateToCode,
   normalizeLocationField,
   normalizeLocationPatch,
   resolveCountryName,
+  resolveStateName,
 } from './location';
 
 describe('country data', () => {
@@ -56,8 +59,28 @@ describe('normalizeLocationField', () => {
   });
 });
 
+describe('US states', () => {
+  it('bundles the 50 states + DC, sorted by name, with code<->name resolution', () => {
+    expect(US_STATES).toHaveLength(51);
+    expect(resolveStateName('TX')).toBe('Texas');
+    expect(resolveStateName('DC')).toBe('District of Columbia');
+    expect(resolveStateName('ZZ')).toBeUndefined();
+  });
+
+  it('matchStateToCode snaps a code or full name (case-insensitive), else undefined', () => {
+    expect(matchStateToCode('tx')).toBe('TX');
+    expect(matchStateToCode('TX')).toBe('TX');
+    expect(matchStateToCode('Texas')).toBe('TX');
+    expect(matchStateToCode('texas')).toBe('TX');
+    expect(matchStateToCode('District of Columbia')).toBe('DC');
+    expect(matchStateToCode('Bavaria')).toBeUndefined(); // not a US state
+    expect(matchStateToCode('   ')).toBeUndefined();
+    expect(matchStateToCode(undefined)).toBeUndefined();
+  });
+});
+
 describe('normalizeLocationPatch', () => {
-  it('normalizes text and validates code fields, always returning all four keys', () => {
+  it('under US, snaps the region to a state code and drops non-states', () => {
     expect(
       normalizeLocationPatch({
         locationCity: '  Dallas ',
@@ -67,10 +90,19 @@ describe('normalizeLocationPatch', () => {
       }),
     ).toEqual({
       locationCity: 'Dallas',
-      locationRegion: 'Texas',
+      locationRegion: 'TX', // "Texas" snaps to the code
       locationCountry: 'US',
       hardinessZone: '8a',
     });
+    // "texas" / "tx" also snap; a non-US region under US drops.
+    expect(normalizeLocationPatch({ locationRegion: 'tx', locationCountry: 'US' }).locationRegion).toBe('TX');
+    expect(normalizeLocationPatch({ locationRegion: 'Bavaria', locationCountry: 'US' }).locationRegion).toBeUndefined();
+  });
+
+  it('under any other country, keeps the region as trimmed free text', () => {
+    expect(
+      normalizeLocationPatch({ locationRegion: ' Bayern ', locationCountry: 'DE' }).locationRegion,
+    ).toBe('Bayern');
   });
 
   it('drops invalid country/zone and blank text to undefined (clears on save)', () => {

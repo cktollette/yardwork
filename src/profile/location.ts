@@ -106,6 +106,55 @@ export function isHardinessZone(zone: string | undefined): boolean {
   return zone != null && ZONE_SET.has(zone);
 }
 
+/**
+ * US states + DC, alpha-2 code -> name. When the country is US the region field
+ * is chosen from this list (never free text); the code is stored, the header
+ * shows the code.
+ */
+export const US_STATE_NAMES: Readonly<Record<string, string>> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'District of Columbia',
+  FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois',
+  IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana',
+  ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan',
+  MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana',
+  NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+  NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota',
+  OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania',
+  RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee',
+  TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington',
+  WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+};
+
+/** State picker options, code + name, sorted by name. */
+export const US_STATES: readonly { readonly code: string; readonly name: string }[] =
+  Object.entries(US_STATE_NAMES)
+    .map(([code, name]) => ({ code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+const STATE_NAME_TO_CODE = new Map(
+  Object.entries(US_STATE_NAMES).map(([code, name]) => [name.toLowerCase(), code]),
+);
+
+/** Resolve a state code to its name, or undefined if unknown. */
+export function resolveStateName(code: string | undefined): string | undefined {
+  return code ? US_STATE_NAMES[code] : undefined;
+}
+
+/**
+ * Case-insensitively snap a US region value to a state code: a code ("tx"->"TX")
+ * or a full state name ("texas"->"TX") both match; anything else (blank, or a
+ * non-US region like "Bavaria") returns undefined so it is dropped, not persisted.
+ */
+export function matchStateToCode(raw: string | undefined): string | undefined {
+  if (raw == null) return undefined;
+  const trimmed = raw.trim();
+  if (trimmed === '') return undefined;
+  const upper = trimmed.toUpperCase();
+  if (upper in US_STATE_NAMES) return upper;
+  return STATE_NAME_TO_CODE.get(trimmed.toLowerCase());
+}
+
 /** Trim, cap to LOCATION_FIELD_MAX, and collapse empty/whitespace-only to undefined. */
 export function normalizeLocationField(raw: string | undefined): string | undefined {
   if (raw == null) return undefined;
@@ -126,12 +175,19 @@ export function normalizeLocationPatch(input: {
   locationCountry?: string;
   hardinessZone?: string;
 }): PropertyLocationEdit {
+  const locationCountry = isCountryCode(input.locationCountry)
+    ? input.locationCountry
+    : undefined;
+  // Under US, the region must be a state code (snap a name/code match, drop the
+  // rest); any other country keeps the region as trimmed free text.
+  const locationRegion =
+    locationCountry === 'US'
+      ? matchStateToCode(input.locationRegion)
+      : normalizeLocationField(input.locationRegion);
   return {
     locationCity: normalizeLocationField(input.locationCity),
-    locationRegion: normalizeLocationField(input.locationRegion),
-    locationCountry: isCountryCode(input.locationCountry)
-      ? input.locationCountry
-      : undefined,
+    locationRegion,
+    locationCountry,
     hardinessZone: isHardinessZone(input.hardinessZone)
       ? input.hardinessZone
       : undefined,
