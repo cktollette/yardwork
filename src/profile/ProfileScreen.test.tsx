@@ -75,7 +75,8 @@ describe('empty install', () => {
     const t = await render();
     const shown = json(t);
     expect(shown).toContain('My Lawn'); // fallback name
-    expect(shown).toContain('Add your location, zone, and grass type'); // empty location prompt
+    expect(shown).toContain('Add location'); // discoverable placeholder row
+    expect(shown).not.toContain('"Edit"'); // no edit affordance when there's no line
     // Distance is gated (no activity): an unlock hint replaces the ring, so the
     // gate is proven by the hint's presence and the absence of a distance ring
     // (a raw null would surface as a "miles" ring with an empty/null value).
@@ -86,6 +87,13 @@ describe('empty install', () => {
     expect(shown).toContain('Garage is empty');
     // "No mows yet" appears for both Statistics and Mows rows.
     expect(shown).toContain('No mows yet');
+  });
+
+  it('the placeholder row opens the location sheet', async () => {
+    const t = await render();
+    expect(json(t)).not.toContain('City'); // sheet closed
+    press(t, 'Edit location');
+    expect(json(t)).toContain('City'); // sheet opened
   });
 });
 
@@ -103,6 +111,7 @@ describe('seeded', () => {
     const t = await render();
     const shown = json(t);
     expect(shown).toContain('Dallas, Texas - Zone 8a - Fescue'); // header line
+    expect(shown).toContain('"Edit"'); // trailing edit affordance on the line
     expect(shown).toContain('miles'); // distance ring present
     expect(shown).not.toContain('Mow with your phone'); // hint gone
     expect(shown).toContain('2 mows - '); // Statistics subtitle
@@ -121,5 +130,12 @@ describe('seeded', () => {
     expect(navigate).toHaveBeenCalledWith('Lawn');
     press(t, 'Garage');
     expect(navigate).toHaveBeenCalledWith('Garage');
+  });
+
+  it('tapping the location line (with its Edit affordance) opens the sheet', async () => {
+    const t = await render();
+    expect(json(t)).not.toContain('City');
+    press(t, 'Edit location');
+    expect(json(t)).toContain('City');
   });
 });

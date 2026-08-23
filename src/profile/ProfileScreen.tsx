@@ -105,9 +105,17 @@ export default function ProfileScreen({ navigation }: Props) {
           accessibilityLabel="Edit location"
           style={({ pressed }) => pressed && styles.pressed}
         >
-          <Text style={locationLine ? styles.location : styles.locationEmpty}>
-            {locationLine || 'Add your location, zone, and grass type'}
-          </Text>
+          {locationLine ? (
+            // The whole line wraps (no numberOfLines cap); a muted trailing "Edit"
+            // affordance is part of the same tap target. ASCII only, so text — not
+            // a pencil glyph.
+            <Text style={styles.location}>
+              {locationLine} <Text style={styles.editGlyph}>Edit</Text>
+            </Text>
+          ) : (
+            // No fields yet: a discoverable placeholder row in the same slot.
+            <Text style={styles.locationEmpty}>Add location</Text>
+          )}
         </Pressable>
       </View>
 
@@ -171,6 +179,7 @@ const styles = StyleSheet.create({
   header: { gap: spacing.xs },
   name: { fontSize: typography.titleLarge, fontWeight: '700', color: colors.ink },
   location: { fontSize: typography.body, color: colors.textSecondary },
+  editGlyph: { color: colors.textMuted, fontWeight: '600' },
   locationEmpty: { fontSize: typography.body, color: colors.primary },
   cardLabel: {
     fontSize: typography.caption,
