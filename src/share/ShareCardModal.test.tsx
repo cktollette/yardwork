@@ -18,6 +18,7 @@ const MODEL: ShareCardModel = {
   toolsLabel: 'Mower',
   areaRing: { value: '5.0k', label: 'sq ft' },
   efficiencyRing: { value: '167', label: 'sq ft/min', progress: 0.5 },
+  backgroundPhotoUri: null,
 };
 
 describe('ShareCardModal', () => {

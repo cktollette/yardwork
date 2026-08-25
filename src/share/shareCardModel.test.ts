@@ -73,6 +73,14 @@ describe('buildShareCardModel', () => {
     expect(buildShareCardModel(mow({ weather: undefined }), ZONES, [mow()]).tempLabel).toBeNull();
   });
 
+  it('carries the stored after photo as backgroundPhotoUri, else null', () => {
+    const uri = 'file:///app/mow-photos/after.jpg'; // app-owned, EXIF-stripped slot
+    expect(
+      buildShareCardModel(mow({ afterPhotoUri: uri }), ZONES, [mow()]).backgroundPhotoUri,
+    ).toBe(uri);
+    expect(buildShareCardModel(mow(), ZONES, [mow()]).backgroundPhotoUri).toBeNull();
+  });
+
   it('omits BOTH rings when there is no lawn area', () => {
     const model = buildShareCardModel(withWeatherTools, [], [withWeatherTools]);
     expect(model.areaRing).toBeNull();
@@ -92,6 +100,7 @@ describe('buildShareCardModel', () => {
       toolsLabel: null,
       areaRing: null,
       efficiencyRing: null,
+      backgroundPhotoUri: null,
     });
   });
 });

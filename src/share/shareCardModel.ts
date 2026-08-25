@@ -31,6 +31,12 @@ export interface ShareCardModel {
   /** null => omit (no area, or no computable rate). Progress ring: this mow vs
    *  your personal best. */
   efficiencyRing: ShareCardRing | null;
+  /**
+   * The mow's stored AFTER photo (app-owned, already downscaled + EXIF-stripped
+   * by the PhotoStore, D-057) to render as the full-bleed card background, or null
+   * when the mow has no after photo. Never a camera-roll original.
+   */
+  backgroundPhotoUri: string | null;
 }
 
 type ZoneArea = Pick<Zone, 'id' | 'areaSqFt'>;
@@ -97,5 +103,6 @@ export function buildShareCardModel(
     toolsLabel: tools.length > 0 ? tools.map(equipmentTypeLabel).join(', ') : null,
     areaRing,
     efficiencyRing,
+    backgroundPhotoUri: mow.afterPhotoUri ?? null,
   };
 }

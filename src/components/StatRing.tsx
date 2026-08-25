@@ -25,6 +25,10 @@ type Props = {
   strokeWidth?: number;
   /** Gap between the ring and its label. Defaults to the app spacing. */
   gap?: number;
+  /** Value text color. Defaults to ink; the share card's photo mode passes light. */
+  valueColor?: string;
+  /** Label text color. Defaults to the app label color; photo mode passes light. */
+  labelColor?: string;
 };
 
 const DEFAULT_SIZE = 72;
@@ -50,6 +54,8 @@ export default function StatRing({
   labelFontSize = typography.caption,
   strokeWidth = DEFAULT_STROKE_WIDTH,
   gap = 6,
+  valueColor = colors.ink,
+  labelColor = colors.textSecondary,
 }: Props) {
   const center = size / 2;
   const radius = (size - strokeWidth) / 2;
@@ -95,12 +101,12 @@ export default function StatRing({
           />
         </Svg>
         <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
-          <Text style={[styles.value, { fontSize: valueFontSize }]} numberOfLines={1}>
+          <Text style={[styles.value, { fontSize: valueFontSize, color: valueColor }]} numberOfLines={1}>
             {value}
           </Text>
         </View>
       </View>
-      <Text style={[styles.label, { fontSize: labelFontSize }]}>{label}</Text>
+      <Text style={[styles.label, { fontSize: labelFontSize, color: labelColor }]}>{label}</Text>
     </View>
   );
 }
