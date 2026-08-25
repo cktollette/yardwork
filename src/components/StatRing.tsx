@@ -17,12 +17,20 @@ type Props = {
   progress?: number;
   /** Unfilled-track color, only shown when `progress` is provided. */
   trackColor?: string;
+  /** Value font size. Defaults to the app ring size; the share card scales it up. */
+  valueFontSize?: number;
+  /** Label font size. Defaults to the app ring size; the share card scales it up. */
+  labelFontSize?: number;
+  /** Arc stroke width. Defaults to the app ring weight; the card scales it up. */
+  strokeWidth?: number;
+  /** Gap between the ring and its label. Defaults to the app spacing. */
+  gap?: number;
 };
 
 const DEFAULT_SIZE = 72;
-// Fixed stroke: matches the Grint-style arc weight and keeps arc geometry
-// deterministic for the render tests.
-const STROKE_WIDTH = 6;
+// Default stroke: matches the Grint-style arc weight and keeps arc geometry
+// deterministic for the render tests. Overridable via `strokeWidth`.
+const DEFAULT_STROKE_WIDTH = 6;
 
 /**
  * Circular stat display: a value centered inside a colored ring, with a label
@@ -38,9 +46,13 @@ export default function StatRing({
   ringColor = colors.primary,
   progress,
   trackColor = colors.sand,
+  valueFontSize = typography.title,
+  labelFontSize = typography.caption,
+  strokeWidth = DEFAULT_STROKE_WIDTH,
+  gap = 6,
 }: Props) {
   const center = size / 2;
-  const radius = (size - STROKE_WIDTH) / 2;
+  const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
   const hasProgress = typeof progress === 'number';
@@ -48,7 +60,7 @@ export default function StatRing({
   const dashOffset = circumference * (1 - fraction);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { gap }]}>
       <View style={{ width: size, height: size }}>
         {/* Arcs start at 3 o'clock in SVG; rotate the whole canvas -90deg so
             progress fills from the top. The value overlay is a sibling, so it
@@ -66,7 +78,7 @@ export default function StatRing({
               r={radius}
               fill="none"
               stroke={trackColor}
-              strokeWidth={STROKE_WIDTH}
+              strokeWidth={strokeWidth}
             />
           )}
           <Circle
@@ -76,19 +88,19 @@ export default function StatRing({
             r={radius}
             fill="none"
             stroke={ringColor}
-            strokeWidth={STROKE_WIDTH}
+            strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
           />
         </Svg>
         <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
-          <Text style={styles.value} numberOfLines={1}>
+          <Text style={[styles.value, { fontSize: valueFontSize }]} numberOfLines={1}>
             {value}
           </Text>
         </View>
       </View>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { fontSize: labelFontSize }]}>{label}</Text>
     </View>
   );
 }

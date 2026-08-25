@@ -46,6 +46,28 @@ describe('StatRing', () => {
     expect(arc(tree).props.stroke).toBe('#123456');
   });
 
+  it('honors custom value/label font sizes, stroke width, and gap (share-card scale)', () => {
+    const tree = render(
+      <StatRing
+        value="5.0k"
+        label="sq ft"
+        size={360}
+        valueFontSize={120}
+        labelFontSize={42}
+        strokeWidth={18}
+        gap={16}
+      />,
+    );
+    expect(arc(tree).props.strokeWidth).toBe(18);
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('"fontSize":120'); // value scaled up
+    expect(json).toContain('"fontSize":42'); // label scaled up
+  });
+
+  it('defaults keep the app-scale geometry (stroke 6)', () => {
+    expect(arc(render(<StatRing value={5} label="mows" />)).props.strokeWidth).toBe(6);
+  });
+
   describe('arc geometry', () => {
     it('0% leaves the arc fully unfilled (offset = full circumference)', () => {
       const a = arc(render(<StatRing value={0} label="p" progress={0} />));

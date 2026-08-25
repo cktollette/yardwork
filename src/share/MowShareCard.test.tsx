@@ -34,7 +34,7 @@ describe('MowShareCard', () => {
     expect(json).toContain('Mower, Trimmer');
   });
 
-  it('reuses StatRing untouched: area as a full ring, efficiency as a progress ring', () => {
+  it('area as a full ring, efficiency as a progress ring, both at card-scale sizing', () => {
     const found = rings(render(FULL));
     expect(found).toHaveLength(2);
     // Area ring: no progress prop (full ring).
@@ -43,6 +43,14 @@ describe('MowShareCard', () => {
     // Efficiency ring: carries the progress prop.
     expect(found[1].props.value).toBe('167');
     expect(found[1].props.progress).toBe(0.5);
+    // Both rings are sized for the 1080 canvas (finding 1: app defaults were tiny).
+    for (const r of found) {
+      expect(r.props.size).toBe(360);
+      expect(r.props.valueFontSize).toBe(120);
+      expect(r.props.labelFontSize).toBe(42);
+      expect(r.props.strokeWidth).toBe(18);
+      expect(r.props.gap).toBe(16);
+    }
   });
 
   it('omits the tools line when toolsLabel is null', () => {
