@@ -8,7 +8,7 @@ import MowInProgressBanner from '../mow/MowInProgressBanner';
 import MowListScreen from '../mow/MowListScreen';
 import type { RootStackParamList, RootTabParamList } from '../mow/navigation';
 import ProfileScreen from '../profile/ProfileScreen';
-import { colors, radii, typography } from '../theme';
+import { colors, radii, shadows, typography } from '../theme';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
@@ -149,11 +149,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     // Lift the button above the bar (elevated center-action pattern).
     transform: [{ translateY: -12 }],
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 6,
+    ...shadows.floating,
   },
   centerPressed: {
     backgroundColor: colors.primaryMuted,

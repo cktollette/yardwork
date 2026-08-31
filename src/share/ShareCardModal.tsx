@@ -92,7 +92,7 @@ export default function ShareCardModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(45, 42, 50, 0.6)', // charcoal scrim
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {
