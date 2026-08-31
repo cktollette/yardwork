@@ -1,8 +1,14 @@
 export const colors = {
   // Brand palette
   ink: '#2D2A32',          // primary text, replaces #111827
-  primary: '#468367',      // actions/brand green, replaces #16a34a and #22c55e
-  primaryMuted: '#639376', // secondary accents, pressed states
+  primary: '#2E5E43',      // actions/brand green (rebrand v2), was #468367
+  greenLight: '#66B287',   // fills, progress, positive accents. FAILS contrast for
+                           // text on light backgrounds — never use for text on cream/white.
+  // primaryMuted historically did two jobs — pressed feedback AND the inactive tab
+  // tint — which only read correctly under the old lighter green. It now keeps ONLY
+  // the inactive-tint job (unchanged value); press-darken lives in primaryPressed.
+  primaryMuted: '#639376', // inactive tab tint (NOT pressed states)
+  primaryPressed: '#254B36', // pressed state for primary fills (new primary darkened ~20%)
   sand: '#D6D1B1',         // subtle fills, tile accents
   cream: '#F2EDEB',        // app background, replaces white BACKGROUNDS only
 
@@ -14,4 +20,5 @@ export const colors = {
   destructive: '#B4534B',    // warmed red, replaces #dc2626 and #fca5a5
   warning: '#C08A3E',        // caution amber, replaces #f59e0b
   textOnColor: '#FFFFFF',    // text on primary/destructive fills
+  scrim: 'rgba(45, 42, 50, 0.5)', // canonical sheet/modal backdrop (ink-tinted)
 } as const;
