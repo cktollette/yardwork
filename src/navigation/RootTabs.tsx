@@ -53,8 +53,11 @@ export default function RootTabs() {
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.primaryMuted,
+        // The tab bar is dark chrome (colors.ink). Post-rebrand, primary is a
+        // light-surface color that reads muddy on dark, so the active accent is
+        // greenLight (the light-on-dark accent) and inactive goes neutral grey.
+        tabBarActiveTintColor: colors.greenLight,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.tabLabel,
         headerStyle: styles.header,
         headerTintColor: colors.ink,
