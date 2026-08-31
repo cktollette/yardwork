@@ -54,7 +54,7 @@ export default function FirstMowSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.scrim,
     justifyContent: 'center',
     padding: spacing.xl,
   },

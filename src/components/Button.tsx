@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   },
   fullWidth: { alignSelf: 'stretch' },
   primary: { backgroundColor: colors.primary },
-  primaryPressed: { backgroundColor: colors.primaryMuted },
+  primaryPressed: { backgroundColor: colors.primaryPressed },
   destructive: { backgroundColor: colors.destructive },
   pill: { backgroundColor: 'transparent' },
   pressedDim: { opacity: 0.7 },

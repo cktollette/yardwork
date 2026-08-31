@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xs,
     borderRadius: radii.pill,
     backgroundColor: colors.sand,
   },

@@ -8,7 +8,7 @@ import MowInProgressBanner from '../mow/MowInProgressBanner';
 import MowListScreen from '../mow/MowListScreen';
 import type { RootStackParamList, RootTabParamList } from '../mow/navigation';
 import ProfileScreen from '../profile/ProfileScreen';
-import { colors, radii, typography } from '../theme';
+import { colors, radii, shadows, typography } from '../theme';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
@@ -53,8 +53,11 @@ export default function RootTabs() {
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.primaryMuted,
+        // The tab bar is dark chrome (colors.ink). Post-rebrand, primary is a
+        // light-surface color that reads muddy on dark, so the active accent is
+        // greenLight (the light-on-dark accent) and inactive goes neutral grey.
+        tabBarActiveTintColor: colors.greenLight,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.tabLabel,
         headerStyle: styles.header,
         headerTintColor: colors.ink,
@@ -149,14 +152,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     // Lift the button above the bar (elevated center-action pattern).
     transform: [{ translateY: -12 }],
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 6,
+    ...shadows.floating,
   },
   centerPressed: {
-    backgroundColor: colors.primaryMuted,
+    backgroundColor: colors.primaryPressed,
   },
   centerLabel: {
     color: colors.textOnColor,

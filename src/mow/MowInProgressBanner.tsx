@@ -7,7 +7,7 @@ import { activeDurationSeconds, finalize, isRunning, isPaused } from './mowSegme
 import type { RootStackParamList } from './navigation';
 import { clearTimerState } from './timerStorage';
 import { publishTimerCleared, useInProgressTimer } from './useInProgressTimer';
-import { colors, radii, spacing, typography } from '../theme';
+import { colors, radii, shadows, spacing, typography } from '../theme';
 
 /** Height of the bottom tab bar this floats above (default RN tab bar). */
 const TAB_BAR_HEIGHT = 49;
@@ -102,11 +102,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 6,
+    ...shadows.floating,
   },
   left: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pip: { width: 8, height: 8, borderRadius: 4 },
@@ -130,7 +126,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.lg,
   },
-  finishPressed: { backgroundColor: colors.primaryMuted },
+  finishPressed: { backgroundColor: colors.primaryPressed },
   finishText: {
     color: colors.textOnColor,
     fontSize: typography.caption,
