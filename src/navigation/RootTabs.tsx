@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     ...shadows.floating,
   },
   centerPressed: {
-    backgroundColor: colors.primaryMuted,
+    backgroundColor: colors.primaryPressed,
   },
   centerLabel: {
     color: colors.textOnColor,

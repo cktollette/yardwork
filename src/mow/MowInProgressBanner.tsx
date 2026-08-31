@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.lg,
   },
-  finishPressed: { backgroundColor: colors.primaryMuted },
+  finishPressed: { backgroundColor: colors.primaryPressed },
   finishText: {
     color: colors.textOnColor,
     fontSize: typography.caption,
