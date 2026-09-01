@@ -1,9 +1,10 @@
-import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import ChipRow from '../components/ChipRow';
+import ErrorState from '../components/ErrorState';
+import { useAsyncResource } from '../components/useAsyncResource';
 import { propertyRepository } from '../mow/asyncStorageRepositories';
 import type { Property, Zone } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
@@ -92,36 +93,30 @@ function ZoneRow({
  * All property access goes through the repository interface (D-013).
  */
 export default function LawnHomeScreen({ navigation }: Props) {
-  const [property, setProperty] = useState<Property | null>(null);
-
-  // Reload on focus so the list reflects a zone just drawn/edited/removed.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      propertyRepository.getOrCreateDefault().then((prop) => {
-        if (active) setProperty(prop);
-      });
-      return () => {
-        active = false;
-      };
-    }, []),
+  // Reloads on focus so the list reflects a zone just drawn/edited/removed.
+  // The zone mutations below persist and then reload() — data-wins keeps the
+  // current lawn on screen during the re-read, so there is no flash.
+  const { status, data: property, reload } = useAsyncResource(() =>
+    propertyRepository.getOrCreateDefault(),
   );
 
   const onRename = useCallback(
     async (zoneId: string, name: string) => {
       if (!property) return;
-      setProperty(await propertyRepository.updateZone(property.id, zoneId, { name }));
+      await propertyRepository.updateZone(property.id, zoneId, { name });
+      reload();
     },
-    [property],
+    [property, reload],
   );
 
   const onSetGrassType = useCallback(
     async (zoneId: string, grassType: string | undefined) => {
       if (!property) return;
       // Present-but-undefined key clears; a value sets it.
-      setProperty(await propertyRepository.updateZone(property.id, zoneId, { grassType }));
+      await propertyRepository.updateZone(property.id, zoneId, { grassType });
+      reload();
     },
-    [property],
+    [property, reload],
   );
 
   const onRetrace = useCallback(
@@ -146,14 +141,17 @@ export default function LawnHomeScreen({ navigation }: Props) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setProperty(await propertyRepository.deleteZone(property.id, zoneId));
+            await propertyRepository.deleteZone(property.id, zoneId);
+            reload();
           },
         },
       ]);
     },
-    [property],
+    [property, reload],
   );
 
+  // A rejected read surfaces the error state instead of hanging on blank.
+  if (status === 'error') return <ErrorState onRetry={reload} />;
   // First read in flight: render nothing rather than a flash of the empty state.
   if (property === null) return <View style={styles.container} />;
 

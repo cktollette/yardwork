@@ -187,3 +187,14 @@ describe('LawnHomeScreen — zone grass type', () => {
     expect(bermuda.props.accessibilityState).toEqual({ selected: false });
   });
 });
+
+describe('LawnHomeScreen — load error', () => {
+  it('renders the error state (not an eternal blank) when the read rejects', async () => {
+    propertyRepository.getOrCreateDefault.mockRejectedValue(new Error('read failed'));
+
+    const tree = await renderLawn();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("Couldn't load");
+    expect(json).toContain('Retry');
+  });
+});
