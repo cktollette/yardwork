@@ -1,12 +1,12 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Card from '../components/Card';
+import ErrorState from '../components/ErrorState';
 import StatRing from '../components/StatRing';
+import { useAsyncResource } from '../components/useAsyncResource';
 import { equipmentRepository } from '../equipment/asyncStorageRepositories';
 import { coveredAreaSqFt, totalAreaSqFt } from '../lawn/zones';
 import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
-import type { Mow, Property } from '../mow/models';
 import type { RootTabScreenProps } from '../mow/navigation';
 import { deriveStats } from '../stats/deriveStats';
 import { colors, radii, spacing, typography } from '../theme';
@@ -50,32 +50,26 @@ function SectionRow({
 }
 
 export default function ProfileScreen({ navigation }: Props) {
-  const [property, setProperty] = useState<Property | null>(null);
-  const [mows, setMows] = useState<Mow[] | null>(null);
-  const [equipmentCount, setEquipmentCount] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const load = useCallback(() => {
-    let active = true;
+  // Refreshes on focus (and via reload() after a location save).
+  const { status, data, reload } = useAsyncResource(() =>
     Promise.all([
       propertyRepository.getOrCreateDefault(),
       mowRepository.listMows(),
       equipmentRepository.list(),
-    ]).then(([prop, loadedMows, equipment]) => {
-      if (!active) return;
-      setProperty(prop);
-      setMows(loadedMows);
-      setEquipmentCount(equipment.length);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+    ]).then(([prop, loadedMows, equipment]) => ({
+      property: prop,
+      mows: loadedMows,
+      equipmentCount: equipment.length,
+    })),
+  );
 
-  useFocusEffect(load);
-
+  // A rejected read surfaces the error state instead of hanging on blank.
+  if (status === 'error') return <ErrorState onRetry={reload} />;
   // First read in flight: render nothing rather than flash the fallback state.
-  if (property === null || mows === null) return <View style={styles.container} />;
+  if (data === null) return <View style={styles.container} />;
+  const { property, mows, equipmentCount } = data;
 
   const displayName = profileDisplayName(property);
   const locationLine = formatProfileLocationLine({
@@ -167,7 +161,7 @@ export default function ProfileScreen({ navigation }: Props) {
         <LocationSheet
           property={property}
           onClose={() => setSheetOpen(false)}
-          onSaved={load}
+          onSaved={reload}
         />
       )}
     </ScrollView>

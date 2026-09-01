@@ -1,5 +1,3 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mowRepository } from './asyncStorageRepositories';
 import { formatDuration, formatMowDate } from './format';
@@ -8,6 +6,8 @@ import TempChip from './TempChip';
 import type { Mow } from './models';
 import type { RootTabScreenProps } from './navigation';
 import ToolBadges from './ToolBadges';
+import ErrorState from '../components/ErrorState';
+import { useAsyncResource } from '../components/useAsyncResource';
 import { colors, radii, spacing, typography } from '../theme';
 
 // The Log tab's root screen. Navigates to MowDetail, which pushes on the root
@@ -16,21 +16,13 @@ type Props = RootTabScreenProps<'Log'>;
 
 /** Reverse-chronological list of saved mows: date, duration, notes preview. */
 export default function MowListScreen({ navigation }: Props) {
-  const [mows, setMows] = useState<Mow[] | null>(null);
-
-  // Reload whenever the screen regains focus so a freshly saved mow appears.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      mowRepository.listMows().then((loaded) => {
-        if (active) setMows(loaded);
-      });
-      return () => {
-        active = false;
-      };
-    }, []),
+  // Reloads whenever the screen regains focus so a freshly saved mow appears.
+  const { status, data: mows, reload } = useAsyncResource(() =>
+    mowRepository.listMows(),
   );
 
+  // A rejected read surfaces the error state instead of hanging on blank.
+  if (status === 'error') return <ErrorState onRetry={reload} />;
   // Still loading the first read: render nothing rather than a flash of "empty".
   if (mows === null) return <View style={styles.container} />;
 

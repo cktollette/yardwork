@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -89,7 +90,11 @@ export default function LocationSheet({
       onSaved();
       onClose();
     } catch {
+      // Convention: reads get a screen-level error state; MUTATIONS get an
+      // Alert. Surface the failure and keep the sheet open so the user can
+      // retry — never swallow it silently (this used to fail invisibly).
       setSaving(false);
+      Alert.alert("Couldn't save location", 'Please try again.');
     }
   };
 

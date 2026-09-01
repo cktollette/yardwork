@@ -1,9 +1,8 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../components/Button';
+import ErrorState from '../components/ErrorState';
+import { useAsyncResource } from '../components/useAsyncResource';
 import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
-import type { Property } from '../mow/models';
 import type { RootStackScreenProps } from '../mow/navigation';
 import { hasLawn } from '../lawn/prompts';
 import { coveredAreaSqFt, totalAreaSqFt } from '../lawn/zones';
@@ -16,7 +15,6 @@ import {
   MIN_MOWS_FOR_AVERAGES,
   MIN_MOWS_FOR_AVG_HOC,
   MIN_MOWS_FOR_MOST_USED_TOOL,
-  type Stats,
 } from './deriveStats';
 
 type Props = RootStackScreenProps<'Statistics'>;
@@ -48,39 +46,29 @@ function LockedHint({ text }: { text: string }) {
 }
 
 export default function StatsScreen({ navigation }: Props) {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [property, setProperty] = useState<Property | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      Promise.all([
-        mowRepository.listMows(),
-        propertyRepository.getOrCreateDefault(),
-      ]).then(([mows, prop]) => {
-        if (!active) return;
-        setProperty(prop);
-        // The lawn area (once drawn) unlocks the area-based stats; until then
-        // it's null and those stats stay gated behind "Draw your lawn".
-        setStats(
-          // Total lawn area = sum of zone areas; 0 (no zones) reads as "no
-          // polygon" inside deriveStats and keeps the area stats gated. Each mow
-          // contributes the area IT covered (per its zone selection), resolved
-          // here so partial mows don't skew efficiency.
-          deriveStats(
-            mows.map((m) => ({ ...m, coveredAreaSqFt: coveredAreaSqFt(m.zoneIds, prop.zones) })),
-            { areaSqFt: totalAreaSqFt(prop.zones), now: Date.now() },
-          ),
-        );
-      });
-      return () => {
-        active = false;
-      };
-    }, []),
+  const { status, data, reload } = useAsyncResource(() =>
+    Promise.all([
+      mowRepository.listMows(),
+      propertyRepository.getOrCreateDefault(),
+    ]).then(([mows, prop]) => ({
+      property: prop,
+      // The lawn area (once drawn) unlocks the area-based stats; until then it's
+      // 0 and those stats stay gated behind "Draw your lawn". Total lawn area =
+      // sum of zone areas; 0 (no zones) reads as "no polygon" inside deriveStats.
+      // Each mow contributes the area IT covered (per its zone selection),
+      // resolved here so partial mows don't skew efficiency.
+      stats: deriveStats(
+        mows.map((m) => ({ ...m, coveredAreaSqFt: coveredAreaSqFt(m.zoneIds, prop.zones) })),
+        { areaSqFt: totalAreaSqFt(prop.zones), now: Date.now() },
+      ),
+    })),
   );
 
+  // A rejected read surfaces the error state instead of hanging on blank.
+  if (status === 'error') return <ErrorState onRetry={reload} />;
   // First read in flight: render nothing rather than a flash of empty stats.
-  if (stats === null || property === null) return <View style={styles.container} />;
+  if (data === null) return <View style={styles.container} />;
+  const { stats, property } = data;
 
   const lawnDrawn = hasLawn(property.zones);
 

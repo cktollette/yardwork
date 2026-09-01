@@ -1,9 +1,10 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import ErrorState from '../components/ErrorState';
 import StatRing from '../components/StatRing';
+import { useAsyncResource } from '../components/useAsyncResource';
 import { mowRepository, propertyRepository } from '../mow/asyncStorageRepositories';
 import { formatDuration, formatMowDate } from '../mow/format';
 import type { Mow, Property } from '../mow/models';
@@ -29,9 +30,6 @@ function compact(n: number): string {
  * module. Refreshes on focus so a just-saved mow shows up on return.
  */
 export default function HomeScreen({ navigation }: Props) {
-  const [mows, setMows] = useState<Mow[] | null>(null);
-  const [property, setProperty] = useState<Property | null>(null);
-
   // On launch, offer to manually log an in-progress mow that survived a kill but
   // could not be restored (quarantined by timerStorage). Home is the launch
   // landing screen, so a mount here is "on launch"; the hook shows at most once.
@@ -41,25 +39,19 @@ export default function HomeScreen({ navigation }: Props) {
     useCallback((draft) => navigation.navigate('SaveMow', { draft }), [navigation]),
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      Promise.all([
-        mowRepository.listMows(),
-        propertyRepository.getOrCreateDefault(),
-      ]).then(([loadedMows, prop]) => {
-        if (!active) return;
-        setMows(loadedMows);
-        setProperty(prop);
-      });
-      return () => {
-        active = false;
-      };
-    }, []),
+  // Refreshes on focus so a just-saved mow shows up on return.
+  const { status, data, reload } = useAsyncResource(() =>
+    Promise.all([
+      mowRepository.listMows(),
+      propertyRepository.getOrCreateDefault(),
+    ]),
   );
 
+  // A rejected read surfaces the error state instead of hanging on blank.
+  if (status === 'error') return <ErrorState onRetry={reload} />;
   // First read in flight: render nothing rather than a flash of the empty state.
-  if (mows === null || property === null) return <View style={styles.container} />;
+  if (data === null) return <View style={styles.container} />;
+  const [mows, property] = data;
 
   // Cold start: no mow ever logged.
   if (mows.length === 0) {

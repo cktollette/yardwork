@@ -79,3 +79,14 @@ describe('MowListScreen — job-type badges', () => {
     expect(json).not.toContain('Blow');
   });
 });
+
+describe('MowListScreen — load error', () => {
+  it('renders the error state (not an eternal blank) when the read rejects', async () => {
+    mowRepository.listMows.mockRejectedValue(new Error('read failed'));
+
+    const tree = await renderList();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("Couldn't load");
+    expect(json).toContain('Retry');
+  });
+});

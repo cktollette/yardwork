@@ -1,7 +1,7 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../components/Button';
+import ErrorState from '../components/ErrorState';
+import { useAsyncResource } from '../components/useAsyncResource';
 import type { RootStackScreenProps } from '../mow/navigation';
 import { colors, spacing, typography } from '../theme';
 import { equipmentRepository } from './asyncStorageRepositories';
@@ -17,21 +17,13 @@ type Props = RootStackScreenProps<'Garage'>;
  * repository interface (D-013) — never AsyncStorage directly.
  */
 export default function GarageScreen({ navigation }: Props) {
-  const [equipment, setEquipment] = useState<Equipment[] | null>(null);
-
-  // Reload on focus so a just-added/edited/deleted item is reflected.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      equipmentRepository.list().then((loaded) => {
-        if (active) setEquipment(loaded);
-      });
-      return () => {
-        active = false;
-      };
-    }, []),
+  // Reloads on focus so a just-added/edited/deleted item is reflected.
+  const { status, data: equipment, reload } = useAsyncResource(() =>
+    equipmentRepository.list(),
   );
 
+  // A rejected read surfaces the error state instead of hanging on blank.
+  if (status === 'error') return <ErrorState onRetry={reload} />;
   // First read in flight: render nothing rather than a flash of the empty state.
   if (equipment === null) return <View style={styles.container} />;
 
