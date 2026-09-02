@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  chipSelected: { backgroundColor: colors.sand, borderColor: colors.sand },
+  chipSelected: { backgroundColor: colors.greenLight, borderColor: colors.greenLight },
   chipText: { fontSize: typography.bodySmall, color: colors.textSecondary },
   chipTextSelected: { color: colors.ink, fontWeight: '600' },
   pressed: { opacity: 0.7 },

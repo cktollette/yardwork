@@ -779,8 +779,9 @@ function VertexHandle({
 }
 
 const styles = StyleSheet.create({
-  // Black backdrop behind the satellite map (intentionally not cream — this is
-  // a full-bleed map screen, no cream ever shows). No black token in the palette.
+  // Black backdrop behind the satellite map (intentionally not the app ground —
+  // this is a full-bleed map screen, the ground never shows). No black token in
+  // the palette.
   container: { flex: 1, backgroundColor: '#000' },
   center: { alignItems: 'center', justifyContent: 'center' },
   map: { flex: 1 },

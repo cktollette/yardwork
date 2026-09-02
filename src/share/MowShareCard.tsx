@@ -11,7 +11,8 @@ import type { ShareCardModel, ShareCardRing } from './shareCardModel';
  * preview scales this down to fit the screen. Reuses StatRing with card-scale
  * typography (the app-default fonts were illegibly small at 1080).
  *
- * Two variants: the default cream card, and a PHOTO variant when the mow has an
+ * Two variants: the default white card (ground retired from cream, D-082
+ * amendment), and a PHOTO variant when the mow has an
  * after photo (the stored, downscaled, EXIF-stripped slot, D-057) rendered as the
  * full-bleed background under a scrim with light text. In the photo variant the
  * wordmark + URL are bottom-anchored (ad-hero framing); the no-photo variant is
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 2,
-    borderTopColor: colors.sand,
+    borderTopColor: colors.border,
     paddingTop: 18,
   },
   statLabel: { fontSize: 40, fontWeight: '600', color: colors.textSecondary },

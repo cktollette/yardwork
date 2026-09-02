@@ -10,7 +10,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
  * Both source SVGs share identical geometry (viewBox 0 0 1080 258); only fills
  * differ, so this is one component parameterized by `variant`:
  *   - 'gradient' (default): letterforms carry the light->dark green gradient,
- *     the tagline glyphs are solid dark green (#2e5e43). Used on the cream card.
+ *     the tagline glyphs are solid dark green (#2e5e43). Used on the white card.
  *   - 'white': every shape is white. Used in the photo variant of MowShareCard,
  *     where the wordmark sits white and bottom-anchored over the scrim (D-082).
  *
@@ -97,7 +97,7 @@ const LETTER_PATHS = [
 export type WordmarkVariant = 'gradient' | 'white';
 
 type Props = {
-  /** 'gradient' (cream card) or 'white' (over the photo scrim). */
+  /** 'gradient' (white card) or 'white' (over the photo scrim). */
   variant?: WordmarkVariant;
   /** Rendered width in px; height derives from the 1080:258 aspect ratio. */
   width?: number;

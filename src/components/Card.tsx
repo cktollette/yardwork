@@ -8,9 +8,10 @@ type Props = {
 };
 
 /**
- * Elevated surface container: white fill on the cream app background, warm
- * border, standard radius and padding. All from theme tokens. Pass `style` to
- * override or extend (e.g. gap, margin).
+ * Elevated surface container: white `surface` fill on the (now white) app
+ * ground, distinguished by its warm `border`, standard radius and padding —
+ * elevation reads from the border, not a tonal step. All from theme tokens.
+ * Pass `style` to override or extend (e.g. gap, margin).
  */
 export default function Card({ children, style }: Props) {
   return <View style={[styles.card, style]}>{children}</View>;
