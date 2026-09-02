@@ -21,7 +21,7 @@ function jsonResponse(status, body) {
   });
 }
 
-// Minimal brand-styled page for the no-JS fallback path. Cream background,
+// Minimal brand-styled page for the no-JS fallback path. White background,
 // charcoal text, green heading, a link back home. ASCII copy only.
 function htmlResponse(status, heading, message) {
   const body = `<!DOCTYPE html>
@@ -32,13 +32,13 @@ function htmlResponse(status, heading, message) {
 <title>Klippa</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <style>
-  body { margin: 0; background: #F2EDEB; color: #2D2A32;
+  body { margin: 0; background: #FFFFFF; color: #2D2A32;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     line-height: 1.6; }
   .wrap { max-width: 680px; margin: 0 auto; padding: 64px 20px; text-align: center; }
-  h1 { color: #468367; font-size: 1.6rem; margin: 0 0 12px; }
+  h1 { color: #2E5E43; font-size: 1.6rem; margin: 0 0 12px; }
   p { margin: 0 0 24px; }
-  a { color: #468367; font-weight: bold; }
+  a { color: #2E5E43; font-weight: bold; }
 </style>
 </head>
 <body>
