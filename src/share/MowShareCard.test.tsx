@@ -1,6 +1,7 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import StatRing from '../components/StatRing';
 import MowShareCard from './MowShareCard';
+import Wordmark from './Wordmark';
 import type { ShareCardModel } from './shareCardModel';
 
 const FULL: ShareCardModel = {
@@ -23,11 +24,18 @@ function render(model: ShareCardModel): ReactTestRenderer {
 
 const rings = (tree: ReactTestRenderer) => tree.root.findAllByType(StatRing);
 const text = (tree: ReactTestRenderer) => JSON.stringify(tree.toJSON());
+// The wordmark is now the Wordmark SVG component, not literal "Klippa" text, so
+// assert on the component + its variant rather than a rendered string.
+const wordmarks = (tree: ReactTestRenderer) => tree.root.findAllByType(Wordmark);
 
 describe('MowShareCard', () => {
   it('renders the wordmark, date, and all present fields', () => {
-    const json = text(render(FULL));
-    expect(json).toContain('Klippa');
+    const tree = render(FULL);
+    const marks = wordmarks(tree);
+    expect(marks).toHaveLength(1);
+    // Cream (no-photo) card uses the gradient wordmark.
+    expect(marks[0].props.variant).toBe('gradient');
+    const json = text(tree);
     expect(json).toContain('getklippa.com');
     expect(json).toContain('Jul 22, 2026');
     expect(json).toContain('00:30:00');
@@ -96,8 +104,12 @@ describe('MowShareCard — after-photo background variant', () => {
     expect(img.props.resizeMode).toBe('cover');
     expect(byTestId(tree, 'share-card-scrim').length).toBeGreaterThan(0);
 
+    // Wordmark still present, bottom-anchored, and switched to the white
+    // variant over the photo scrim (D-082).
+    const marks = wordmarks(tree);
+    expect(marks).toHaveLength(1);
+    expect(marks[0].props.variant).toBe('white');
     const json = text(tree);
-    expect(json).toContain('Klippa'); // wordmark still present (bottom-anchored)
     expect(json).toContain('167'); // stats still render
     // Rings switch to light text over the photo.
     expect(rings(tree)[0].props.valueColor).toBe('#FFFFFF');
@@ -110,9 +122,11 @@ describe('MowShareCard — after-photo background variant', () => {
     expect(byTestId(tree, 'share-card-scrim')).toHaveLength(0);
     // Default rings keep the dark default (no light override).
     expect(rings(tree)[0].props.valueColor).toBeUndefined();
-    // Current content intact.
+    // Current content intact; wordmark keeps the gradient variant with no photo.
+    const marks = wordmarks(tree);
+    expect(marks).toHaveLength(1);
+    expect(marks[0].props.variant).toBe('gradient');
     const json = text(tree);
-    expect(json).toContain('Klippa');
     expect(json).toContain('Jul 22, 2026');
   });
 });

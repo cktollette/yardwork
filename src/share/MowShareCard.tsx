@@ -1,5 +1,6 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
 import StatRing from '../components/StatRing';
+import Wordmark from './Wordmark';
 import { colors } from '../theme';
 import type { ShareCardModel, ShareCardRing } from './shareCardModel';
 
@@ -36,6 +37,11 @@ const RING_GAP = 16;
 // tunable during the smoke (0.35 vs 0.45 judged by eye on the rendered card).
 const SCRIM_OPACITY = 0.35;
 
+// Rendered width of the brand wordmark on the card. Tuned against the 920px
+// content width (1080 canvas minus the 80px side padding); height derives from
+// the wordmark's 1080:258 aspect ratio.
+const WORDMARK_WIDTH = 520;
+
 // Light-on-photo palette.
 const ON_PHOTO_TEXT = '#FFFFFF';
 const ON_PHOTO_SECONDARY = 'rgba(255,255,255,0.85)';
@@ -58,7 +64,11 @@ export default function MowShareCard({ model }: { model: ShareCardModel }) {
 
   const wordmark = (
     <View style={styles.header}>
-      <Text style={[styles.wordmark, hasPhoto && styles.onPhotoText]}>Klippa</Text>
+      <Wordmark
+        variant={hasPhoto ? 'white' : 'gradient'}
+        width={WORDMARK_WIDTH}
+        testID="share-card-wordmark"
+      />
       <Text style={[styles.url, hasPhoto && styles.onPhotoSecondary]}>getklippa.com</Text>
     </View>
   );
@@ -158,8 +168,7 @@ const styles = StyleSheet.create({
   },
   photoBody: { gap: 56 },
   header: { alignItems: 'center' },
-  wordmark: { fontSize: 84, fontWeight: '800', color: colors.primary, letterSpacing: 1 },
-  url: { fontSize: 30, fontWeight: '600', color: colors.textSecondary, marginTop: 6 },
+  url: { fontSize: 30, fontWeight: '600', color: colors.textSecondary, marginTop: 12 },
   date: { fontSize: 56, fontWeight: '700', color: colors.ink, textAlign: 'center' },
   rings: {
     flexDirection: 'row',
