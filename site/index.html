@@ -67,9 +67,6 @@
 
     /* Hero — fills the first mobile screen without scrolling. */
     .hero {
-      /* IMPORTANT: this background MUST stay exactly #F2EDEB. wordmark.png has a
-         baked-in solid cream (#F2EDEB) background; any other color here would
-         reveal the image's rectangle around the letterforms. */
       background: var(--cream);
       min-height: 100svh;
       display: flex;
@@ -78,25 +75,19 @@
     .hero .inner { text-align: center; }
     .hero-title { margin: 0 0 6px; }
     .wordmark {
+      /* Gradient brand wordmark (transparent SVG, 1080x258). Sized by width so
+         the baked "EVERY MOW COUNTS" tagline stays legible; height derives from
+         the aspect ratio. */
       display: block;
       margin: 0 auto;
-      height: 96px;      /* sized by height (the PNG is 1376x768); max-width is a cap.
-                            Enlarged ~1.7x (mobile) / 2x (desktop) from the original 56px;
-                            ~172x96 here, ~201x112 on desktop — both well under the cap,
-                            so the baked #F2EDEB PNG never reveals an edge. */
-      width: auto;
-      max-width: 320px;
+      width: 100%;
+      max-width: 360px;
+      height: auto;
     }
     @media (min-width: 600px) {
-      .wordmark { height: 112px; }
+      .wordmark { max-width: 440px; }
     }
-    .tagline {
-      color: var(--green);
-      font-weight: bold;
-      font-size: 1.15rem;
-      margin: 0 0 20px;
-    }
-    .pitch { margin: 0 auto 24px; max-width: 520px; }
+    .pitch { margin: 24px auto; max-width: 520px; }
 
     /* Call-to-action buttons */
     .cta { text-align: center; margin: 8px 0; }
@@ -200,8 +191,7 @@
 <body>
   <section class="hero band-cream">
     <div class="inner">
-      <h1 class="hero-title"><img class="wordmark" src="wordmark.png" alt="Klippa" width="1376" height="768"></h1>
-      <p class="tagline">Every mow counts</p>
+      <h1 class="hero-title"><img class="wordmark" src="wordmark-gradient.svg" alt="Klippa — Every mow counts" width="1080" height="258"></h1>
 
       <p class="pitch">You mow your own lawn, and you do it right. Klippa is the tracker for people who treat the yard as a craft. Log every mow, map your yard on satellite, build your streak, and watch the work add up to something you can point at.</p>
 
