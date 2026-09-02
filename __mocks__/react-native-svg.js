@@ -26,6 +26,7 @@ module.exports = {
   Svg,
   Circle: mockSvgComponent('Circle', View),
   Path: mockSvgComponent('Path', View),
+  Polygon: mockSvgComponent('Polygon', View),
   G: mockSvgComponent('G', View),
   Rect: mockSvgComponent('Rect', View),
   Line: mockSvgComponent('Line', View),
