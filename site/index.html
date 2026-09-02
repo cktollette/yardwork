@@ -146,6 +146,13 @@
     .signup-status.is-error { color: var(--dark); }
     .cf-turnstile { margin: 0 0 16px; }
 
+    /* Hero-adjacent early-access form: a quiet strip below the hero, lighter
+       than the hero CTA (compact .signup-row button, tighter band, hairline
+       off the hero). Subordinate to the TestFlight tap. */
+    .hero-signup { border-top: 1px solid var(--border); }
+    .hero-signup .inner { padding-top: 28px; padding-bottom: 28px; }
+    .signup-lead { font-weight: bold; color: var(--dark); margin: 0 0 14px; }
+
     /* Feature list */
     .features { list-style: none; margin: 0; padding: 0; }
     .features li { margin-bottom: 14px; }
@@ -199,6 +206,29 @@
         <a class="btn" href="https://testflight.apple.com/join/QvBmZysn">Get Klippa on TestFlight&nbsp;&rarr;</a>
         <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
       </div>
+    </div>
+  </section>
+
+  <section class="band-white hero-signup" id="early">
+    <div class="inner">
+      <p class="signup-lead">Not on iPhone yet? Get in early.</p>
+      <form class="signup" action="/api/subscribe" method="POST">
+        <input type="hidden" name="source" value="getklippa-hero">
+        <!-- Honeypot: hidden from humans (see .hp), left in the DOM to catch bots. -->
+        <div class="hp" aria-hidden="true">
+          <label>Company website
+            <input type="text" name="company" tabindex="-1" autocomplete="off">
+          </label>
+        </div>
+        <div class="signup-row">
+          <input class="signup-email" type="email" name="email" required maxlength="254"
+                 autocomplete="email" placeholder="you@example.com" aria-label="Email address">
+          <button class="btn" type="submit">Notify me</button>
+        </div>
+        <!-- Turnstile site key (public; the secret lives in the TURNSTILE_SECRET Pages env var). -->
+        <div class="cf-turnstile" data-sitekey="0x4AAAAAAEUarYQoKRykf4fE" data-theme="light"></div>
+        <p class="signup-status" role="status" aria-live="polite" hidden></p>
+      </form>
     </div>
   </section>
 
@@ -275,14 +305,13 @@
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
   <!-- The site's one JS island (D-064): progressive enhancement for the signup
-       form. If this fails or is disabled, the form still POSTs natively and the
-       Pages Function returns an HTML confirmation page. -->
+       forms. Binds every form.signup on the page (hero + bottom). If this fails
+       or is disabled, each form still POSTs natively and the Pages Function
+       returns an HTML confirmation page. -->
   <script>
     (function () {
-      var form = document.querySelector('form.signup');
-      if (!form) return;
-      var status = form.querySelector('.signup-status');
-      var button = form.querySelector('button[type="submit"]');
+      var forms = document.querySelectorAll('form.signup');
+      if (!forms.length) return;
       var MESSAGES = {
         subscribed: "You're in. Watch your inbox.",
         already: "You're in. Watch your inbox.",
@@ -291,35 +320,42 @@
         server: "Something went wrong on our end. Try again in a minute.",
         network: "Something went wrong on our end. Try again in a minute."
       };
-      function show(kind, text) {
-        status.textContent = text;
-        status.className = 'signup-status ' + (kind === 'ok' ? 'is-ok' : 'is-error');
-        status.hidden = false;
-      }
-      form.addEventListener('submit', function (e) {
-        // Let the browser's native validation handle empty or malformed emails.
-        if (!form.checkValidity()) return;
-        e.preventDefault();
-        button.disabled = true;
-        fetch(form.action, {
-          method: 'POST',
-          headers: { Accept: 'application/json' },
-          body: new FormData(form)
-        }).then(function (res) {
-          return res.json().then(function (data) { return { status: res.status, data: data }; });
-        }).then(function (r) {
-          var d = r.data || {};
-          if (d.ok) {
-            form.reset();
-            show('ok', MESSAGES[d.state] || MESSAGES.subscribed);
-          } else {
-            show('error', MESSAGES[d.error] || MESSAGES.server);
-          }
-        }).catch(function () {
-          show('error', MESSAGES.network);
-        }).then(function () {
-          button.disabled = false;
-          if (window.turnstile) { try { window.turnstile.reset(); } catch (err) {} }
+      forms.forEach(function (form) {
+        var status = form.querySelector('.signup-status');
+        var button = form.querySelector('button[type="submit"]');
+        var widget = form.querySelector('.cf-turnstile');
+        function show(kind, text) {
+          status.textContent = text;
+          status.className = 'signup-status ' + (kind === 'ok' ? 'is-ok' : 'is-error');
+          status.hidden = false;
+        }
+        form.addEventListener('submit', function (e) {
+          // Let the browser's native validation handle empty or malformed emails.
+          if (!form.checkValidity()) return;
+          e.preventDefault();
+          button.disabled = true;
+          fetch(form.action, {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: new FormData(form)
+          }).then(function (res) {
+            return res.json().then(function (data) { return { status: res.status, data: data }; });
+          }).then(function (r) {
+            var d = r.data || {};
+            if (d.ok) {
+              form.reset();
+              show('ok', MESSAGES[d.state] || MESSAGES.subscribed);
+            } else {
+              show('error', MESSAGES[d.error] || MESSAGES.server);
+            }
+          }).catch(function () {
+            show('error', MESSAGES.network);
+          }).then(function () {
+            button.disabled = false;
+            // Reset only THIS form's Turnstile widget (the page has two). Fallback
+            // if container-scoped reset misbehaves: drop this line, rely on token expiry.
+            if (window.turnstile && widget) { try { window.turnstile.reset(widget); } catch (err) {} }
+          });
         });
       });
     })();
