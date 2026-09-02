@@ -204,7 +204,7 @@ export default function LawnHomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.lg,

@@ -33,7 +33,7 @@ describe('MowShareCard', () => {
     const tree = render(FULL);
     const marks = wordmarks(tree);
     expect(marks).toHaveLength(1);
-    // Cream (no-photo) card uses the gradient wordmark.
+    // White (no-photo) card uses the gradient wordmark.
     expect(marks[0].props.variant).toBe('gradient');
     const json = text(tree);
     expect(json).toContain('getklippa.com');

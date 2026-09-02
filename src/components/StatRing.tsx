@@ -49,7 +49,7 @@ export default function StatRing({
   size = DEFAULT_SIZE,
   ringColor = colors.primary,
   progress,
-  trackColor = colors.sand,
+  trackColor = colors.border,
   valueFontSize = typography.title,
   labelFontSize = typography.caption,
   strokeWidth = DEFAULT_STROKE_WIDTH,

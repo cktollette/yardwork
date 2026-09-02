@@ -169,7 +169,7 @@ export default function ProfileScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.lg },
   header: { gap: spacing.xs },
   name: { fontSize: typography.titleLarge, fontWeight: '700', color: colors.ink },
