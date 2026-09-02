@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { propertyRepository } from '../mow/asyncStorageRepositories';
@@ -144,4 +145,28 @@ it('clearing everything leaves fields undefined and the header shows the fallbac
   expect(cleared.locationCountry).toBeUndefined();
   expect(headerLine(cleared)).toBe('');
   expect(profileDisplayName(cleared)).toBe('My Lawn');
+});
+
+it('surfaces a save failure via Alert and keeps the sheet open (never silent)', async () => {
+  const property = await propertyRepository.getOrCreateDefault();
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const updateSpy = jest
+    .spyOn(propertyRepository, 'updateLocation')
+    .mockRejectedValueOnce(new Error('disk full'));
+
+  const { tree, onSaved, onClose } = await renderSheet(property);
+  setText(tree, 'City', 'Dallas');
+  await act(async () => pressButton(tree, 'Save'));
+
+  // The failure is surfaced, not swallowed.
+  expect(alertSpy).toHaveBeenCalledWith("Couldn't save location", 'Please try again.');
+  // Sheet stays open; no success side effects fired.
+  expect(onSaved).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+  expect(has(tree, 'City')).toBe(true);
+  // And it is interactive again (not stuck on "Saving…").
+  expect(json(tree)).not.toContain('Saving');
+
+  updateSpy.mockRestore();
+  alertSpy.mockRestore();
 });

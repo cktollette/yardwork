@@ -94,4 +94,14 @@ describe('HomeScreen', () => {
     expect(json).toContain('mows');
     expect(json).toContain('hours');
   });
+
+  it('renders the error state (not an eternal blank) when a read rejects', async () => {
+    listMows.mockRejectedValue(new Error('read failed'));
+    getProperty.mockResolvedValue(PROPERTY);
+
+    const json = JSON.stringify((await renderHome()).toJSON());
+    expect(json).toContain("Couldn't load");
+    expect(json).toContain('Retry');
+    expect(json).not.toContain('week streak');
+  });
 });

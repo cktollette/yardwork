@@ -139,3 +139,15 @@ describe('seeded', () => {
     expect(json(t)).toContain('City');
   });
 });
+
+describe('ProfileScreen — load error', () => {
+  it('renders the error state (not an eternal blank) when a read rejects', async () => {
+    getProperty.mockRejectedValue(new Error('read failed'));
+    listMows.mockResolvedValue([]);
+    listEquipment.mockResolvedValue([]);
+
+    const t = await render();
+    expect(json(t)).toContain("Couldn't load");
+    expect(json(t)).toContain('Retry');
+  });
+});
