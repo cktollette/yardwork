@@ -146,6 +146,13 @@
     .signup-status.is-error { color: var(--dark); }
     .cf-turnstile { margin: 0 0 16px; }
 
+    /* Hero-adjacent early-access form: a quiet strip below the hero, lighter
+       than the hero CTA (compact .signup-row button, tighter band, hairline
+       off the hero). Subordinate to the TestFlight tap. */
+    .hero-signup { border-top: 1px solid var(--border); }
+    .hero-signup .inner { padding-top: 28px; padding-bottom: 28px; }
+    .signup-lead { font-weight: bold; color: var(--dark); margin: 0 0 14px; }
+
     /* Feature list */
     .features { list-style: none; margin: 0; padding: 0; }
     .features li { margin-bottom: 14px; }
@@ -199,6 +206,29 @@
         <a class="btn" href="https://testflight.apple.com/join/QvBmZysn">Get Klippa on TestFlight&nbsp;&rarr;</a>
         <p class="expect">iPhone only &middot; free during the beta &middot; opens in the TestFlight app</p>
       </div>
+    </div>
+  </section>
+
+  <section class="band-white hero-signup" id="early">
+    <div class="inner">
+      <p class="signup-lead">Not on iPhone yet? Get in early.</p>
+      <form class="signup" action="/api/subscribe" method="POST">
+        <input type="hidden" name="source" value="getklippa-hero">
+        <!-- Honeypot: hidden from humans (see .hp), left in the DOM to catch bots. -->
+        <div class="hp" aria-hidden="true">
+          <label>Company website
+            <input type="text" name="company" tabindex="-1" autocomplete="off">
+          </label>
+        </div>
+        <div class="signup-row">
+          <input class="signup-email" type="email" name="email" required maxlength="254"
+                 autocomplete="email" placeholder="you@example.com" aria-label="Email address">
+          <button class="btn" type="submit">Notify me</button>
+        </div>
+        <!-- Turnstile site key (public; the secret lives in the TURNSTILE_SECRET Pages env var). -->
+        <div class="cf-turnstile" data-sitekey="0x4AAAAAAEUarYQoKRykf4fE" data-theme="light"></div>
+        <p class="signup-status" role="status" aria-live="polite" hidden></p>
+      </form>
     </div>
   </section>
 
