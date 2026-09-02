@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption,
   },
   header: {
-    backgroundColor: colors.cream,
+    backgroundColor: colors.background,
   },
   headerTitle: {
     color: colors.ink,

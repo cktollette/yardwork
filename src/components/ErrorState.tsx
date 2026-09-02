@@ -21,7 +21,7 @@ export default function ErrorState({ onRetry }: { onRetry: () => void }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,

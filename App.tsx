@@ -34,7 +34,7 @@ export default function App() {
   if (!timer.loaded) {
     return (
       <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: colors.cream }} />
+        <View style={{ flex: 1, backgroundColor: colors.background }} />
         <StatusBar style="auto" />
       </SafeAreaProvider>
     );

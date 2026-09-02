@@ -10,7 +10,7 @@ export const colors = {
   primaryMuted: '#639376', // inactive tab tint (NOT pressed states)
   primaryPressed: '#254B36', // pressed state for primary fills (new primary darkened ~20%)
   sand: '#D6D1B1',         // subtle fills, tile accents
-  cream: '#F2EDEB',        // app background, replaces white BACKGROUNDS only
+  background: '#F2EDEB',    // app ground (distinct job from `surface`; value flips to white next commit)
 
   // Derived / functional
   surface: '#FFFFFF',        // cards and elevated surfaces stay white

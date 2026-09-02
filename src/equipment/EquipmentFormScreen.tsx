@@ -259,11 +259,11 @@ export default function EquipmentFormScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.background },
   content: {
     padding: spacing.xl,
     gap: spacing.xl,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.background,
     flexGrow: 1,
   },
   center: { alignItems: 'center', justifyContent: 'center', gap: spacing.md },

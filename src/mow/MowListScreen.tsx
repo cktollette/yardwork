@@ -78,7 +78,7 @@ export default function MowListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.background,
   },
   listContent: {
     padding: spacing.lg,

@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.xl,
     gap: spacing.xl,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.background,
     flexGrow: 1,
   },
   center: { alignItems: 'center', justifyContent: 'center', gap: spacing.md },

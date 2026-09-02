@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   card: {
     width: SHARE_CARD_SIZE,
     height: SHARE_CARD_SIZE,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.background,
     paddingHorizontal: 80,
     paddingVertical: 72,
     justifyContent: 'space-between',

@@ -196,7 +196,7 @@ export default function StatsScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.lg,
